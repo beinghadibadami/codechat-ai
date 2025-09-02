@@ -1,10 +1,7 @@
 import { useToast } from '@/hooks/use-toast';
 
 // Prefer env-configured API base in production builds
-const API_BASE_URL =
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) ||
-  (typeof window !== 'undefined' && (window as any).__API_BASE_URL__) ||
-  'http://localhost:8000';
+const API_BASE_URL = "https://codechat-backend-cb3v.onrender.com" ;
 
 export interface SessionInfo {
   namespace: string;
