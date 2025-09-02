@@ -16,13 +16,13 @@ from fastapi import  Body, HTTPException
 
 app = FastAPI(title="Codechat AI")
 
-    app.add_middleware(
+app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:8080", "https://codechat-jgxg.onrender.com/"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-    )
+)
 
 # Initialize enhanced Pinecone manager
 pinecone_manager = create_enhanced_pinecone_manager()
