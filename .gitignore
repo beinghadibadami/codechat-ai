@@ -1,0 +1,84 @@
+# Root gitignore for both backend and frontend
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.env.local
+
+# Editor/IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+frontend/.eslintcache
+frontend/.cache/
+frontend/.turbo/
+
+# Backend (Python)
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/.venv/
+backend/venv/
+backend/env/
+backend/ENV/
+backend/.python-version
+
+# Packaging
+backend/build/
+backend/dist/
+backend/.eggs/
+backend/*.egg-info/
+backend/.installed.cfg
+
+# Test/coverage
+backend/.pytest_cache/
+backend/.coverage
+backend/.coverage.*
+backend/htmlcov/
+backend/.tox/
+backend/.mypy_cache/
+backend/.pytype/
+backend/.ruff_cache/
+
+# Jupyter
+backend/.ipynb_checkpoints/
+
+# Data/runtime storage
+/data/
+/tmp/
+/tmp/rag-data/
+rag-data/
+
+# Misc
+*.pid
+*.seed
+
+# Optional lockfiles (uncomment to ignore lockfiles)
+# frontend/yarn.lock
+# frontend/pnpm-lock.yaml
+# frontend/package-lock.json
