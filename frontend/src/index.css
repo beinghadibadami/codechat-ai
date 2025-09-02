@@ -1,0 +1,238 @@
+/* CodeChat AI Design System - Dark Mode Premium */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark mode color system */
+    --background: 224 15% 6%;
+    --background-elevated: 224 15% 8%;
+    --background-surface: 224 15% 10%;
+    --foreground: 210 40% 98%;
+    
+    /* Card system */
+    --card: 224 15% 8%;
+    --card-elevated: 224 15% 10%;
+    --card-foreground: 210 40% 98%;
+    
+    /* Interactive elements */
+    --popover: 224 15% 10%;
+    --popover-foreground: 210 40% 98%;
+    
+    /* Brand gradient system */
+    --primary: 270 91% 65%;
+    --primary-dark: 270 91% 55%;
+    --primary-foreground: 210 40% 98%;
+    --accent-pink: 320 91% 65%;
+    --accent-cyan: 190 91% 65%;
+    
+    /* Semantic colors */
+    --secondary: 224 15% 15%;
+    --secondary-foreground: 210 40% 98%;
+    
+    --muted: 224 15% 12%;
+    --muted-foreground: 215 20% 65%;
+    
+    --accent: 224 15% 15%;
+    --accent-foreground: 210 40% 98%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 224 15% 6%;
+    
+    --success: 142 76% 36%;
+    --success-foreground: 210 40% 98%;
+    
+    /* UI elements */
+    --border: 224 15% 20%;
+    --border-elevated: 224 15% 25%;
+    --input: 224 15% 12%;
+    --ring: 270 91% 65%;
+    
+    --radius: 0.75rem;
+
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-pink)) 100%);
+    --gradient-glow: linear-gradient(135deg, hsl(var(--primary) / 0.3) 0%, hsl(var(--accent-pink) / 0.3) 50%, hsl(var(--accent-cyan) / 0.3) 100%);
+    --gradient-border: linear-gradient(135deg, hsl(var(--border-elevated)) 0%, hsl(var(--primary) / 0.3) 100%);
+    
+    /* Motion tokens */
+    --duration-fast: 150ms;
+    --duration-normal: 250ms;
+    --duration-slow: 350ms;
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    
+    /* Shadows */
+    --shadow-glow: 0 0 50px hsl(var(--primary) / 0.15);
+    --shadow-card: 0 8px 32px hsl(224 15% 0% / 0.4);
+    --shadow-elevated: 0 20px 40px hsl(224 15% 0% / 0.6);
+  }
+
+  .dark {
+    /* We use the main theme as dark by default */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-inter antialiased;
+  }
+
+  /* Typography scale */
+  .text-display {
+    @apply text-5xl md:text-6xl font-bold tracking-tight;
+  }
+
+  .text-heading {
+    @apply text-3xl md:text-4xl font-bold tracking-tight;
+  }
+
+  .text-subheading {
+    @apply text-xl md:text-2xl font-semibold;
+  }
+
+  .text-code {
+    @apply font-mono text-sm;
+  }
+}
+
+@layer components {
+  /* Gradient utilities */
+  .bg-gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .bg-gradient-glow {
+    background: var(--gradient-glow);
+  }
+
+  .border-gradient {
+    border-image: var(--gradient-border) 1;
+  }
+
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-background-elevated/80 backdrop-blur-xl border border-border-elevated;
+  }
+
+  /* Glow effects */
+  .glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .glow-on-hover {
+    transition: box-shadow var(--duration-normal) var(--ease-smooth);
+  }
+
+  .glow-on-hover:hover {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Interactive elements */
+  .interactive {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .interactive:hover {
+    @apply scale-[1.02] brightness-110;
+  }
+
+  .interactive:active {
+    @apply scale-[0.98];
+  }
+
+  /* Drop zones */
+  .dropzone {
+    @apply border-2 border-dashed border-muted-foreground/30 bg-muted/30 rounded-xl transition-all duration-300;
+  }
+
+  .dropzone.drag-over {
+    @apply border-primary bg-primary/10 shadow-lg;
+    animation: pulse-glow 1.5s ease-in-out infinite;
+  }
+
+  /* Code blocks */
+  .code-block {
+    @apply bg-background-surface rounded-lg border border-border p-4 overflow-auto;
+  }
+
+  .code-block pre {
+    @apply text-code text-muted-foreground;
+  }
+
+  /* Message bubbles */
+  .message-bubble {
+    @apply bg-card border border-border rounded-2xl p-4 shadow-sm;
+  }
+
+  .message-bubble.user {
+    @apply bg-gradient-primary text-primary-foreground ml-12;
+  }
+
+  .message-bubble.assistant {
+    @apply mr-12;
+  }
+}
+
+@layer utilities {
+  /* Custom animations */
+  @keyframes pulse-glow {
+    0%, 100% { 
+      box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+    }
+    50% { 
+      box-shadow: 0 0 40px hsl(var(--primary) / 0.5);
+    }
+  }
+
+  @keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.6s ease-out;
+  }
+
+  /* Focus styles */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
