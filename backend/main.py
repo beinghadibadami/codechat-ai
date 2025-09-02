@@ -14,12 +14,17 @@ from fastapi import  Body, HTTPException
 
 
 
-app = FastAPI(title="RAG Code Reviewer")
+app = FastAPI(title="Codechat AI")
+
+origins=[
+    "https://codechat-jgxg.onrender.com/",
+     "http://localhost:3000",
+]
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
