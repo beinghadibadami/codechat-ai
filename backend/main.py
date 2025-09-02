@@ -18,7 +18,7 @@ app = FastAPI(title="Codechat AI")
 
 app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:8080", "https://codechat-jgxg.onrender.com/"],
+        allow_origins=["http://localhost:8080", "https://codechat-jgxg.onrender.com"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
