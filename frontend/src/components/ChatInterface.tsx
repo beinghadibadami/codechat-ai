@@ -51,7 +51,7 @@ export const ChatInterface = () => {
   const getDemoResponse = (message: string): string => {
     const lowerMessage = message.toLowerCase();
     
-    if (lowerMessage.includes('architecture') || lowerMessage.includes('structure')) {
+    if (lowerMessage.includes('architecture') || lowerMessage.includes('summary')) {
       return `## Architecture Overview
 
 This React TypeScript app follows a modern, scalable architecture:
@@ -129,7 +129,7 @@ const App = () => {
 These are common issues in React applications and can be addressed incrementally.`;
     }
     
-    if (lowerMessage.includes('improve') || lowerMessage.includes('better')) {
+    if (lowerMessage.includes('improvements') || lowerMessage.includes('better') || lowerMessage.includes('improve')) {
       return `## Improvement Suggestions
 
 Here are some recommendations to enhance your codebase:
