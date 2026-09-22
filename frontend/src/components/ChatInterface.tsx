@@ -1,29 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Copy, Menu, X, MessageSquare, RotateCcw, ArrowLeft } from 'lucide-react';
+import { Send, Copy, Check, Menu, X, MessageSquare, ArrowLeft, Trash2, Download, Network, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ActionChips } from './ActionChips';
 import { FileTree } from './FileTree';
 import { MessageFormatter } from './MessageFormatter';
+import { ThemeToggle } from './ThemeToggle';
+import { MessageSkeleton } from './LoadingSkeleton';
+import { FileViewer, Citation } from './FileViewer';
+import { ArchitectureView } from './ArchitectureView';
 import { useToast } from '@/hooks/use-toast';
+import { useChatHistory, Message } from '@/hooks/useChatHistory';
+import { useApiWithRetry } from '@/hooks/useApiWithRetry';
 import { apiService, QueryRequest } from '@/services/api';
 import { useSession } from '@/contexts/SessionContext';
-
-
-interface Message {
-  id: string;
-  type: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  codeBlocks?: { language: string; code: string }[];
-  metadata?: {
-    chunks_found: number;
-    files_involved: number;
-    file_summary: Record<string, { count: number; language: string }>;
-    retrieval_reranked: boolean;
-  };
-}
+import { exportChatAsMarkdown, exportChatAsJSON } from '@/lib/exportChat';
 
 interface ActionChip {
   id: string;
@@ -33,16 +31,27 @@ interface ActionChip {
 }
 
 export const ChatInterface = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Use persistent chat history
+  const { messages, addMessage, clearMessages, isLoaded } = useChatHistory();
   const [currentMessage, setCurrentMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [activeCitation, setActiveCitation] = useState<Citation | null>(null);
+  const [architectureOpen, setArchitectureOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const { sessionInfo, hasData, resetSession } = useSession();
   const [isDemoMode, setIsDemoMode] = useState(false);
+  
+  // API retry hook
+  const { execute: executeWithRetry, retryCount } = useApiWithRetry({
+    maxRetries: 2,
+    retryDelay: 1000,
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -238,7 +247,7 @@ Try asking about:
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    addMessage(userMessage);
     const messageToSend = currentMessage;
     setCurrentMessage('');
     setIsLoading(true);
@@ -255,23 +264,44 @@ Try asking about:
         };
         
         setTimeout(() => {
-          setMessages(prev => [...prev, assistantMessage]);
+          addMessage(assistantMessage);
           setIsLoading(false);
         }, 1000); // Simulate AI thinking time
         return;
       }
 
-      // Real API call for actual data
+      // Real API call with retry logic
       if (!hasData) {
         throw new Error('No code repository loaded');
       }
 
+      // Build history from prior messages so the backend can send
+      // multi-turn context to the LLM. We drop the welcome/demo messages
+      // (id prefixed with "welcome" or "demo-") and cap at last 6 turns.
+      const priorHistory = messages
+        .filter(m => !m.id.startsWith('welcome') && !m.id.startsWith('demo-'))
+        .slice(-6)
+        .map(m => ({
+          role: m.type as 'user' | 'assistant',
+          content: m.content,
+        }));
+
       const request: QueryRequest = {
-        message: messageToSend
+        message: messageToSend,
+        history: priorHistory.length > 0 ? priorHistory : undefined,
       };
 
       console.log('Sending chat request:', request);
-      const response = await apiService.chat(request);
+
+      // Use retry logic for the API call
+      const response = await executeWithRetry(async () => {
+        return await apiService.chat(request);
+      });
+
+      if (!response) {
+        throw new Error('No response from API');
+      }
+
       console.log('Chat response received:', response);
 
       if (response.success) {
@@ -283,25 +313,28 @@ Try asking about:
           metadata: response.metadata
         };
         
-        setMessages(prev => [...prev, assistantMessage]);
+        addMessage(assistantMessage);
       } else {
         throw new Error(response.response || 'Chat request failed');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Chat failed:', error);
+      
+      // Show retry count in error message if retries were attempted
+      const retryMessage = retryCount > 0 ? ` (after ${retryCount} ${retryCount === 1 ? 'retry' : 'retries'})` : '';
       
       const errorMessage: Message = {
         id: Math.random().toString(36).substring(7),
         type: 'assistant',
-        content: "I'm sorry, I encountered an error while processing your request. Please try again or check if your code repository is properly loaded.",
+        content: getErrorMessage(error) + retryMessage,
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, errorMessage]);
+      addMessage(errorMessage);
       
       toast({
         title: "Chat Error",
-        description: "Failed to get response from AI",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {
@@ -311,9 +344,68 @@ Try asking about:
     }
   };
 
+  // Helper function for better error messages
+  const getErrorMessage = (error: any): string => {
+    if (error.message?.includes('No code repository')) {
+      return "Please upload your code first using the Upload button.";
+    }
+    if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      return "Network error. Please check your connection and try again.";
+    }
+    if (error.message?.includes('timeout')) {
+      return "Request timed out. Try a simpler query or check your connection.";
+    }
+    return "I encountered an error processing your request. Please try again.";
+  };
+
+  const handleShare = async () => {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      // Only send real turns (skip welcome/demo)
+      const payload = {
+        messages: messages
+          .filter(m => !m.id.startsWith('welcome') && !m.id.startsWith('demo-'))
+          .map(m => ({
+            role: m.type as 'user' | 'assistant',
+            content: m.content,
+            metadata: m.metadata,
+          })),
+      };
+      const res = await apiService.createShare(payload);
+      const url = `${window.location.origin}/s/${res.share_id}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({
+          title: 'Share link copied',
+          description: url,
+        });
+      } catch {
+        // Clipboard may fail in insecure contexts — just show the URL
+        toast({
+          title: 'Share link created',
+          description: url,
+        });
+      }
+    } catch (error: any) {
+      const msg = error?.message || 'Failed to create share';
+      toast({
+        title: 'Share failed',
+        description: /supabase|configured/i.test(msg)
+          ? 'Sharing is not configured on this server.'
+          : msg,
+        variant: 'destructive',
+      });
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const handleUploadAgain = async () => {
     try {
       await resetSession();
+      // Clear chat history when starting over
+      clearMessages();
       // Redirect to home page
       window.location.href = '/';
     } catch (error) {
@@ -337,7 +429,7 @@ Try asking about:
       timestamp: new Date(),
     };
     
-    setMessages(prev => [...prev, userMessage]);
+    addMessage(userMessage);
     setIsLoading(true);
     
     try {
@@ -350,14 +442,20 @@ Try asking about:
           timestamp: new Date(),
         };
         setTimeout(() => {
-          setMessages(prev => [...prev, assistantMessage]);
+          addMessage(assistantMessage);
           setIsLoading(false);
         }, 1000);
         return;
       }
       
-      // Use the dedicated explain-file endpoint
-      const response = await apiService.explainFile(filePath);
+      // Use retry logic for file explanation
+      const response = await executeWithRetry(async () => {
+        return await apiService.explainFile(filePath);
+      });
+      
+      if (!response) {
+        throw new Error('No response from API');
+      }
       
       if (response.success) {
         const assistantMessage: Message = {
@@ -372,20 +470,24 @@ Try asking about:
             retrieval_reranked: false
           }
         };
-        setMessages(prev => [...prev, assistantMessage]);
+        addMessage(assistantMessage);
       } else {
         throw new Error(response.response || 'Failed to explain file');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('File explanation failed:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: 'Sorry, I encountered an error while explaining the file. Please try again.',
+        content: getErrorMessage(error),
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, errorMessage]);
-      toast({ title: "File Explanation Error", description: "Failed to explain file", variant: "destructive" });
+      addMessage(errorMessage);
+      toast({ 
+        title: "File Explanation Error", 
+        description: getErrorMessage(error), 
+        variant: "destructive" 
+      });
     } finally {
       if (!isDemoMode) {
         setIsLoading(false);
@@ -395,8 +497,11 @@ Try asking about:
 
   // Add welcome message when component mounts and has data
   useEffect(() => {
+    // Only add welcome message if no messages exist and chat history is loaded
+    if (!isLoaded || messages.length > 0) return;
+    
     // Check if we're in demo mode (no actual data but user wants to see demo)
-    if (!hasData && messages.length === 0) {
+    if (!hasData) {
       setIsDemoMode(true);
       const demoMessage: Message = {
         id: 'demo-welcome',
@@ -427,8 +532,8 @@ Try asking me questions like:
 Note: This is demo data. Upload your own code to get real analysis!`,
         timestamp: new Date()
       };
-      setMessages([demoMessage]);
-    } else if (hasData && messages.length === 0 && sessionInfo) {
+      addMessage(demoMessage);
+    } else if (hasData && sessionInfo) {
       setIsDemoMode(false);
       const welcomeMessage: Message = {
         id: 'welcome',
@@ -438,9 +543,9 @@ Note: This is demo data. Upload your own code to get real analysis!`,
 You can ask me to analyze specific aspects, find bugs, suggest improvements, or explain any part of your codebase. What would you like to explore?`,
         timestamp: new Date()
       };
-      setMessages([welcomeMessage]);
+      addMessage(welcomeMessage);
     }
-  }, [hasData, sessionInfo, messages.length]);
+  }, [hasData, sessionInfo, messages.length, isLoaded]);
 
   const handleActionChipSelect = (action: ActionChip) => {
     const actionPrompts = {
@@ -483,20 +588,48 @@ You can ask me to analyze specific aspects, find bugs, suggest improvements, or 
     });
   };
 
+  const copyMessageContent = (id: string, content: string) => {
+    navigator.clipboard.writeText(content);
+    setCopiedMessageId(id);
+    toast({ title: 'Copied', description: 'Message copied to clipboard' });
+    setTimeout(() => setCopiedMessageId(null), 2000);
+  };
+
   const renderMessage = (message: Message) => {
     const isUser = message.type === 'user';
-    
+    const isCopied = copiedMessageId === message.id;
+
     return (
-      <div key={message.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-fade-in-up`}>
-        <div className={`message-bubble max-w-[80%] ${isUser ? 'user' : 'assistant'}`}>
+      <div key={message.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-fade-in-up group/msg`}>
+        <div className={`message-bubble max-w-[80%] ${isUser ? 'user' : 'assistant'} relative`}>
+          {/* Copy button for assistant messages */}
+          {!isUser && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyMessageContent(message.id, message.content)}
+              className="absolute top-2 right-2 h-7 w-7 p-0 opacity-0 group-hover/msg:opacity-100 transition-opacity"
+              aria-label="Copy message"
+              title="Copy message"
+            >
+              {isCopied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+            </Button>
+          )}
+
           {isUser ? (
             <div className="text-gray-100 whitespace-pre-wrap break-words">
               {message.content}
             </div>
           ) : (
-            <MessageFormatter content={message.content} />
+            <div className={!isUser ? 'pr-8' : ''}>
+              <MessageFormatter
+                content={message.content}
+                sources={message.metadata?.sources}
+                onCitationClick={setActiveCitation}
+              />
+            </div>
           )}
-          
+
           {message.codeBlocks?.map((block, index) => (
             <div key={index} className="code-block mt-4 relative group">
               <div className="flex items-center justify-between mb-2">
@@ -517,7 +650,7 @@ You can ask me to analyze specific aspects, find bugs, suggest improvements, or 
               </pre>
             </div>
           ))}
-          
+
           <div className="text-xs text-muted-foreground mt-2 opacity-70">
             {formatTimestamp(message.timestamp)}
           </div>
@@ -528,6 +661,18 @@ You can ask me to analyze specific aspects, find bugs, suggest improvements, or 
 
   return (
     <div className="flex h-screen bg-background">
+      {/* File viewer modal for citation clicks */}
+      <FileViewer
+        citation={activeCitation}
+        onClose={() => setActiveCitation(null)}
+      />
+
+      {/* Architecture diagram modal */}
+      <ArchitectureView
+        open={architectureOpen}
+        onClose={() => setArchitectureOpen(false)}
+      />
+
       {/* Mobile sidebar overlay */}
       {isSidebarOpen && (
         <div 
@@ -582,8 +727,71 @@ You can ask me to analyze specific aspects, find bugs, suggest improvements, or 
               <h1 className="font-semibold">CodeChat AI</h1>
             </div>
           </div>
-          
 
+          {/* Header actions: architecture, export, clear, theme */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setArchitectureOpen(true)}
+              disabled={!hasData}
+              aria-label="View architecture diagram"
+              title="View architecture diagram"
+            >
+              <Network className="w-4 h-4" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleShare}
+              disabled={!hasData || sharing || messages.length === 0}
+              aria-label="Share conversation"
+              title="Share conversation"
+            >
+              <Share2 className="w-4 h-4" />
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={messages.length === 0}
+                  aria-label="Export conversation"
+                  title="Export conversation"
+                >
+                  <Download className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => exportChatAsMarkdown(messages)}>
+                  Export as Markdown
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportChatAsJSON(messages)}>
+                  Export as JSON
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (window.confirm('Clear this conversation? This cannot be undone.')) {
+                  clearMessages();
+                  toast({ title: 'Conversation cleared' });
+                }
+              }}
+              disabled={messages.length === 0}
+              aria-label="Clear conversation"
+              title="Clear conversation"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+
+            <ThemeToggle />
+          </div>
         </div>
 
         {/* Action chips */}
@@ -596,20 +804,7 @@ You can ask me to analyze specific aspects, find bugs, suggest improvements, or 
           <div className="space-y-6 max-w-4xl mx-auto">
             {messages.map(renderMessage)}
             
-            {isLoading && (
-              <div className="flex justify-start animate-fade-in-up">
-                <div className="message-bubble assistant">
-                  <div className="flex items-center gap-2">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-100" />
-                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-200" />
-                    </div>
-                    <span className="text-sm text-muted-foreground">Analyzing...</span>
-                  </div>
-                </div>
-              </div>
-            )}
+            {isLoading && <MessageSkeleton />}
             
             <div ref={messagesEndRef} />
           </div>

@@ -1,15 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { atomDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { Copy, Check } from "lucide-react";
+import { renderWithCitations } from "@/lib/citations";
+import type { Citation } from "@/components/FileViewer";
 
 interface MessageFormatterProps {
   content: string;
+  /**
+   * Optional list of source files retrieved for this message.
+   * If provided, only citations whose file matches (or ends with) one of
+   * these paths will render as clickable — the rest render as muted text
+   * so we don't create broken links when the LLM invents filenames.
+   */
+  sources?: Array<{ file_name?: string | null; file_path?: string | null }>;
+  onCitationClick?: (citation: Citation) => void;
 }
 
 // Copy Button Component
@@ -41,7 +51,29 @@ const CopyButton: React.FC<{ text: string; className?: string }> = ({ text, clas
   );
 };
 
-export const MessageFormatter: React.FC<MessageFormatterProps> = ({ content }) => {
+export const MessageFormatter: React.FC<MessageFormatterProps> = ({
+  content,
+  sources,
+  onCitationClick,
+}) => {
+  // Build a Set of known file paths + names so citation validation is O(1)
+  const getKnownFiles = useMemo(() => {
+    return () => {
+      const set = new Set<string>();
+      for (const s of sources ?? []) {
+        if (s.file_name) set.add(s.file_name);
+        if (s.file_path) set.add(s.file_path);
+      }
+      return set;
+    };
+  }, [sources]);
+
+  // Wrap the children of any text-containing component with the citation walker
+  const withCites = (children: React.ReactNode) =>
+    onCitationClick
+      ? renderWithCitations(children, onCitationClick, getKnownFiles)
+      : children;
+
   return (
     <div className="prose prose-invert max-w-none break-words overflow-hidden">
       <ReactMarkdown
@@ -54,7 +86,7 @@ export const MessageFormatter: React.FC<MessageFormatterProps> = ({ content }) =
               animate={{ opacity: 1, y: 0 }}
               className="text-2xl font-bold text-purple-500 mt-6 mb-4 break-words"
             >
-              {children}
+              {withCites(children)}
             </motion.h1>
           ),
           h2: ({ children }) => (
@@ -63,7 +95,7 @@ export const MessageFormatter: React.FC<MessageFormatterProps> = ({ content }) =
               animate={{ opacity: 1, y: 0 }}
               className="text-xl font-bold text-purple-400 mt-5 mb-3 break-words"
             >
-              {children}
+              {withCites(children)}
             </motion.h2>
           ),
           h3: ({ children }) => (
@@ -72,7 +104,7 @@ export const MessageFormatter: React.FC<MessageFormatterProps> = ({ content }) =
               animate={{ opacity: 1, y: 0 }}
               className="text-lg font-bold text-purple-300 mt-4 mb-2 break-words"
             >
-              {children}
+              {withCites(children)}
             </motion.h3>
           ),
 
@@ -83,7 +115,7 @@ export const MessageFormatter: React.FC<MessageFormatterProps> = ({ content }) =
               animate={{ opacity: 1, y: 0 }}
               className="mb-4 text-gray-100 leading-relaxed break-words whitespace-pre-wrap"
             >
-              {children}
+              {withCites(children)}
             </motion.p>
           ),
 
@@ -107,7 +139,7 @@ export const MessageFormatter: React.FC<MessageFormatterProps> = ({ content }) =
             </motion.ol>
           ),
           li: ({ children }) => (
-            <li className="mb-2 break-words leading-relaxed">{children}</li>
+            <li className="mb-2 break-words leading-relaxed">{withCites(children)}</li>
           ),
 
           // Enhanced code blocks with copy button

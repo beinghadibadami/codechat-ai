@@ -4,13 +4,12 @@ import uuid
 import os
 import re
 from typing import List, Dict, Any, Optional
-from dotenv import load_dotenv
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pinecone import Pinecone, ServerlessSpec
 import time
 
-# Load environment variables
-load_dotenv()
+import env_loader  # noqa: F401 — loads .env and .env.local on import
+
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 
 # Initialize Pinecone client
@@ -132,34 +131,272 @@ class EnhancedPineconeManager:
             print(f"Error: {e}")
             raise
     
+    # File-size thresholds for chunking strategy (in characters)
+    SMALL_FILE_THRESHOLD = 1500      # Files smaller than this are kept whole
+    CONFIG_FILE_THRESHOLD = 3000     # Config-like files can be bigger before splitting
+
     def chunk_documents(self, documents: List, chunk_size: int = 800, chunk_overlap: int = 100) -> List:
-        """Enhanced chunking with better parameters for code"""
-        # Use larger chunks for code to maintain context
+        """
+        Adaptive chunking strategy:
+        - Small files (< 1500 chars) → single chunk, preserves full context
+        - Config/markdown files → larger chunks (fewer boundaries)
+        - Code files → 800-char chunks with class/function scope prepended
+        - All chunks get rich metadata for filtering and hybrid search
+        """
+        all_chunks = []
+
+        for doc in documents:
+            file_path = doc.metadata.get('source', '')
+            text = doc.page_content
+            char_count = len(text)
+            language = self._get_file_type(file_path)
+
+            # Route to appropriate chunking strategy
+            if char_count <= self.SMALL_FILE_THRESHOLD:
+                # Small file → keep as single chunk
+                chunks = [doc]
+            elif language in ('json', 'yaml', 'markdown') and char_count <= self.CONFIG_FILE_THRESHOLD:
+                # Config-ish files → single chunk unless very large
+                chunks = [doc]
+            elif language in ('json', 'yaml'):
+                # Large config files → bigger chunks (fewer splits)
+                chunks = self._split_with_size(doc, chunk_size=1500, chunk_overlap=150)
+            elif language == 'markdown':
+                # Markdown → split on headers where possible
+                chunks = self._split_with_size(doc, chunk_size=1200, chunk_overlap=150)
+            else:
+                # Code files → standard split, then add scope context
+                chunks = self._split_with_size(doc, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+                chunks = self._add_scope_context(chunks, full_text=text, language=language)
+
+            # Attach line numbers to each chunk before enrichment
+            self._attach_line_numbers(chunks, full_text=text)
+
+            # Enrich metadata for every chunk regardless of strategy
+            for chunk in chunks:
+                # Ensure file identity is present before any upsert
+                chunk.metadata.setdefault('file_path', file_path)
+                chunk.metadata.setdefault('file_name', os.path.basename(file_path) if file_path else 'unknown')
+                chunk.metadata.setdefault('language', language)
+                self._enrich_chunk_metadata(chunk, language=language)
+
+            all_chunks.extend(chunks)
+
+        return all_chunks
+
+    def _attach_line_numbers(self, chunks: List, full_text: str):
+        """
+        Set chunk.metadata['line_start'] and ['line_end'] by locating each
+        chunk within the original file text.
+
+        Approximate — for very repetitive files where the same short prefix
+        appears multiple times, the wrong occurrence might be picked. Good
+        enough for citation purposes.
+        """
+        if not chunks:
+            return
+
+        # Single chunk = whole file
+        if len(chunks) == 1:
+            chunks[0].metadata['line_start'] = 1
+            chunks[0].metadata['line_end'] = full_text.count('\n') + 1
+            return
+
+        cursor = 0
+        for chunk in chunks:
+            text = chunk.page_content
+            # Anchor on a distinctive prefix (first ~120 chars, stripped)
+            anchor = text[:120].strip()
+            if not anchor:
+                # Empty chunk — skip
+                chunk.metadata['line_start'] = 1
+                chunk.metadata['line_end'] = 1
+                continue
+
+            pos = full_text.find(anchor, cursor)
+            if pos == -1:
+                # Fall back to unanchored search
+                pos = full_text.find(anchor)
+                if pos == -1:
+                    chunk.metadata['line_start'] = 1
+                    chunk.metadata['line_end'] = 1
+                    continue
+
+            line_start = full_text.count('\n', 0, pos) + 1
+            line_end = line_start + text.count('\n')
+            chunk.metadata['line_start'] = line_start
+            chunk.metadata['line_end'] = line_end
+            cursor = pos + len(anchor)
+
+    def _split_with_size(self, doc, chunk_size: int, chunk_overlap: int) -> List:
+        """Run the recursive splitter on a single Document with given parameters."""
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
-            separators=["\n\n", "\n", " ", ""]  # Better for code structure
+            separators=["\n\n", "\n", " ", ""]
         )
-        return splitter.split_documents(documents)
+        return splitter.split_documents([doc])
+
+    def _add_scope_context(self, chunks: List, full_text: str, language: str) -> List:
+        """
+        For each chunk, detect the enclosing class or top-level function and
+        prepend a short context comment. This gives orphan chunks (e.g., a
+        method body split away from its class header) the scope they need.
+
+        Only Python and JS/TS families supported — regex-based, best-effort.
+        """
+        if not chunks or len(chunks) <= 1:
+            return chunks  # Single chunk already has its own header
+
+        # Build a map of char-offset → enclosing scope for the full file
+        scope_map = self._build_scope_map(full_text, language)
+        if not scope_map:
+            return chunks
+
+        # For each chunk (except the first, which has natural context),
+        # find its position in the original text and prepend the scope
+        cursor = 0
+        for i, chunk in enumerate(chunks):
+            # Locate this chunk in the original text (search forward from cursor)
+            chunk_text = chunk.page_content
+            snippet = chunk_text[:80].strip()  # Use first line-ish as anchor
+            pos = full_text.find(snippet, cursor) if snippet else -1
+            if pos == -1:
+                continue
+            cursor = pos + len(snippet)
+
+            # Find the closest scope that starts before this chunk
+            enclosing = self._find_enclosing_scope(scope_map, pos)
+            if not enclosing:
+                continue
+
+            # If the chunk already contains the class/def line, skip
+            if enclosing['header'].strip() in chunk_text:
+                continue
+
+            # Prepend a short context comment
+            comment_prefix = '#' if language == 'python' else '//'
+            context_line = f"{comment_prefix} Context: {enclosing['header'].strip()}\n"
+            chunk.page_content = context_line + chunk_text
+            chunk.metadata['scope_context'] = enclosing['header'].strip()
+
+        return chunks
+
+    def _build_scope_map(self, text: str, language: str):
+        """
+        Return a list of {start_offset, header, kind} for each class/function
+        definition in the file, in document order.
+        """
+        scopes = []
+        if language == 'python':
+            # Match `class Foo:` or `def bar(...):` at any indent
+            for m in re.finditer(r'^([ \t]*)(class\s+\w+[^\n]*|def\s+\w+\([^)]*\)[^\n]*):?', text, re.MULTILINE):
+                scopes.append({
+                    'start': m.start(),
+                    'header': m.group(0),
+                    'kind': 'class' if 'class' in m.group(2) else 'def'
+                })
+        elif language in ('javascript', 'typescript'):
+            # Match `class Foo`, `function bar(`, `const Foo = (...) =>`, `export const Foo`
+            patterns = [
+                r'^[ \t]*(?:export\s+)?class\s+\w+[^\n]*',
+                r'^[ \t]*(?:export\s+)?(?:async\s+)?function\s+\w+[^\n]*',
+                r'^[ \t]*(?:export\s+)?const\s+[A-Za-z_$]\w*\s*(?::\s*\S+)?\s*=\s*(?:async\s*)?\([^)]*\)\s*=>',
+            ]
+            for pat in patterns:
+                for m in re.finditer(pat, text, re.MULTILINE):
+                    scopes.append({'start': m.start(), 'header': m.group(0), 'kind': 'code'})
+            scopes.sort(key=lambda s: s['start'])
+        return scopes
+
+    def _find_enclosing_scope(self, scope_map, chunk_offset: int):
+        """Return the last scope whose start is before chunk_offset."""
+        enclosing = None
+        for scope in scope_map:
+            if scope['start'] < chunk_offset:
+                enclosing = scope
+            else:
+                break
+        return enclosing
+
+    def _enrich_chunk_metadata(self, chunk, language: str):
+        """Attach code-structure metadata used for filtering and hybrid search."""
+        text = chunk.page_content
+
+        python_funcs = re.findall(r'^\s*def\s+(\w+)', text, re.MULTILINE)
+        python_classes = re.findall(r'^\s*class\s+(\w+)', text, re.MULTILINE)
+        js_funcs = re.findall(
+            r'(?:function\s+(\w+)|const\s+(\w+)\s*=.*?(?:=>|\{)|export\s+(?:async\s+)?function\s+(\w+))',
+            text
+        )
+        js_func_names = [f for group in js_funcs for f in group if f]
+        react_components = re.findall(
+            r'(?:export\s+)?(?:const|function)\s+([A-Z]\w+).*?(?:React\.FC|:\s*FC|=>)',
+            text
+        )
+        has_imports = bool(re.search(r'^\s*(?:import|from)\s+', text, re.MULTILINE))
+        chunk_type = self._classify_chunk_type(text)
+
+        # All symbol names (used for hybrid keyword filter)
+        all_symbols = list(set(python_funcs + python_classes + js_func_names + react_components))
+
+        chunk.metadata.update({
+            'functions': python_funcs + js_func_names,
+            'classes': python_classes,
+            'components': react_components,
+            'symbols': all_symbols,
+            'has_imports': has_imports,
+            'chunk_type': chunk_type,
+            'char_count': len(text),
+            'line_count': text.count('\n') + 1,
+        })
+    
+    def _classify_chunk_type(self, text: str) -> str:
+        """Classify what type of code this chunk contains"""
+        text_lower = text.lower()
+        
+        # Check for different code patterns
+        if re.search(r'^\s*class\s+\w+', text, re.MULTILINE):
+            return 'class_definition'
+        elif re.search(r'^\s*(?:def|function|const\s+\w+\s*=.*?=>)\s+', text, re.MULTILINE):
+            return 'function_definition'
+        elif re.search(r'^\s*(?:import|from)\s+', text, re.MULTILINE) and text.count('\n') < 10:
+            return 'imports'
+        elif text.strip().startswith('{') or text.strip().startswith('['):
+            return 'config_data'
+        elif '@app.' in text or '@router.' in text:
+            return 'api_route'
+        elif 'interface ' in text or 'type ' in text:
+            return 'type_definition'
+        else:
+            return 'general_code'
 
 
     def batch_upsert_documents(self, chunks: List, namespace: str, batch_size: int = 50) -> bool:
         """Upsert documents in batches for better performance"""
         if not chunks:
-            print("⚠️  No chunks to upsert")
+            print("[WARN] No chunks to upsert")
             return False
         
         try:
-            # Prepare all records first
+            # Prepare all records first — include full metadata so retrieval
+            # filters (file_name, symbols) work at query time.
             all_records = []
             for i, chunk in enumerate(chunks):
+                md = chunk.metadata or {}
                 record = {
                     "_id": f"{namespace}-{uuid.uuid4()}",
                     "chunk_text": chunk.page_content,
-                    "file_name": chunk.metadata.get('file_name', 'unknown'),
-                    "language": chunk.metadata.get('language', 'unknown'),
+                    "file_name": md.get('file_name', 'unknown'),
+                    "file_path": md.get('file_path', 'unknown'),
+                    "language": md.get('language', 'unknown'),
                     "chunk_index": i,
-                    # "language": chunk.metadata.get('file_type', 'unknown')
+                    "chunk_type": md.get('chunk_type', 'general_code'),
+                    "symbols": md.get('symbols', []),
+                    "functions": md.get('functions', []),
+                    "classes": md.get('classes', []),
+                    "line_start": md.get('line_start', 1),
+                    "line_end": md.get('line_end', 1),
                 }
                 all_records.append(record)
             
@@ -172,44 +409,49 @@ class EnhancedPineconeManager:
                 batch_records = all_records[start_idx:end_idx]
                 
                 self.index.upsert_records(namespace, batch_records)
-                print(f"✅ Batch {batch_num + 1}/{total_batches}: Upserted {len(batch_records)} records")
+                print(f"[OK] Batch {batch_num + 1}/{total_batches}: Upserted {len(batch_records)} records")
             
             # Wait for final indexing
             import time
             time.sleep(5)  # Reduced wait time since batching is more efficient
             
-            print(f"✅ Successfully batch upserted {len(all_records)} total records")
+            print(f"[OK] Successfully batch upserted {len(all_records)} total records")
             return True
             
         except Exception as e:
-            print(f"❌ Error in batch upsert: {e}")
+            print(f"[ERROR] batch upsert failed: {e}")
             return False
 
     
     def upsert_documents(self, chunks: List, namespace: str, file_path: str = None) -> bool:
         """Upsert documents using Pinecone's hosted embeddings"""
         if not chunks:
-            print("⚠️  No chunks to upsert")
+            print("[WARN] No chunks to upsert")
             return False
         
         try:
-            # Prepare records in the new DocDB-style format
+            # Prepare records in the new DocDB-style format — merge caller
+            # info with the metadata added during chunking (symbols, chunk_type…)
             records = []
             for i, chunk in enumerate(chunks):
                 chunk_id = f"{namespace}-{uuid.uuid4()}"
-                
-                # Enhanced metadata
+                md = chunk.metadata or {}
                 metadata = {
-                    "file_name": os.path.basename(file_path) if file_path else "unknown",
-                    "file_path": file_path if file_path else "unknown",
+                    "file_name": os.path.basename(file_path) if file_path else md.get('file_name', 'unknown'),
+                    "file_path": file_path if file_path else md.get('file_path', 'unknown'),
                     "chunk_index": i,
-                    "language": self._get_file_type(file_path)
+                    "language": self._get_file_type(file_path) if file_path else md.get('language', 'unknown'),
+                    "chunk_type": md.get('chunk_type', 'general_code'),
+                    "symbols": md.get('symbols', []),
+                    "functions": md.get('functions', []),
+                    "classes": md.get('classes', []),
+                    "line_start": md.get('line_start', 1),
+                    "line_end": md.get('line_end', 1),
                 }
-                
                 record = {
                     "id": chunk_id,
-                    "chunk_text": chunk.page_content,  # Field that will be embedded
-                    **metadata
+                    "chunk_text": chunk.page_content,
+                    **metadata,
                 }
                 records.append(record)
             
@@ -219,7 +461,7 @@ class EnhancedPineconeManager:
                 records
             )
             
-            print(f"✅ Upserted {len(records)} records to namespace '{namespace}'")
+            print(f"[OK] Upserted {len(records)} records to namespace '{namespace}'")
 
             # stats = self.index.describe_index_stats()
             # print(f"Index stats: {stats}")
@@ -229,7 +471,7 @@ class EnhancedPineconeManager:
             return True
             
         except Exception as e:
-            print(f"❌ Error upserting documents: {e}")
+            print(f"[ERROR] upserting documents failed: {e}")
             return False
     
     def _get_file_type(self, file_path: str) -> str:
@@ -250,75 +492,170 @@ class EnhancedPineconeManager:
         return type_map.get(ext, 'code')
     
     
-    def smart_retrieve(self, query: str, namespace: str, max_tokens: int = 8000) -> List[Dict]:
-        """Enhanced retrieval with dynamic top-k, reranking, and token management"""
+    # Query-type aware token budgets. gpt-oss-120b has a 131K context window,
+    # so we can afford to be generous for complex queries and still leave
+    # plenty of headroom for the response.
+    TOKEN_BUDGETS = {
+        'specific': 4000,    # Focused questions — small context is fine
+        'general': 8000,     # Default
+        'summary': 20000,    # Summaries need broad context
+        'analysis': 24000,   # Analysis benefits from lots of context
+        'bug_check': 16000,  # Bug hunting needs multiple files
+    }
+
+    # Common file extensions we look for in queries (for file-level filter)
+    FILE_EXT_PATTERN = re.compile(
+        r'\b([\w.-]+\.(?:py|js|ts|tsx|jsx|java|cpp|c|go|rs|php|rb|swift|kt|cs|vb|html|css|json|yaml|yml|md|sql))\b',
+        re.IGNORECASE
+    )
+
+    def _extract_file_hint(self, query: str):
+        """Return a filename mentioned in the query, or None."""
+        m = self.FILE_EXT_PATTERN.search(query)
+        return m.group(1) if m else None
+
+    def _extract_symbol_hints(self, query: str) -> List[str]:
+        """
+        Pull out likely code identifiers from the query for hybrid keyword
+        filtering:
+          - PascalCase (UserService, ChatInterface)
+          - camelCase (getUserById, myFunction)
+          - snake_case with underscore (get_user_by_id)
+          - foo() or obj.method() call patterns
+        Common English words filtered out.
+        """
+        # PascalCase: starts uppercase, has another uppercase-lower group
+        pascal = re.findall(r'\b[A-Z][a-z]+(?:[A-Z][a-z]*)+\b', query)
+        # camelCase: starts lowercase, has an internal uppercase-lower group
+        camel = re.findall(r'\b[a-z]+(?:[A-Z][a-z]*)+\b', query)
+        # snake_case with underscore
+        snake = re.findall(r'\b[a-z]+_[a-z_]+\b', query)
+        # foo() or obj.method()
+        calls = re.findall(r'\b([A-Za-z_]\w+)\s*\(', query)
+
+        symbols = set(pascal + camel + snake + calls)
+        stop = {
+            'function', 'class', 'method', 'return', 'import',
+            'export', 'const', 'variable',
+        }
+        return [s for s in symbols if s.lower() not in stop and len(s) > 2]
+
+    def smart_retrieve(self, query: str, namespace: str, max_tokens: int = None) -> List[Dict]:
+        """
+        Multi-signal retrieval:
+          1. Query analysis → intent, complexity, top-k
+          2. File-level filter if query mentions a filename
+          3. Hybrid symbol filter as a first-pass narrowing (with fallback)
+          4. Vector search + optional reranking
+          5. Query-type aware token budget (not the hard 8K default)
+        """
         try:
-            # Analyze query to determine optimal retrieval strategy
             analysis = self.query_analyzer.analyze_query(query)
-            
-            print(f"🔍 Query Analysis:")
+            file_hint = self._extract_file_hint(query)
+            symbol_hints = self._extract_symbol_hints(query)
+
+            # Use query-type budget unless caller specifies
+            if max_tokens is None:
+                max_tokens = self.TOKEN_BUDGETS.get(analysis['intent'], 8000)
+
+            print(f"[SEARCH] Query Analysis:")
             print(f"   Intent: {analysis['intent']}")
             print(f"   Complexity: {analysis['complexity']}")
             print(f"   Base K: {analysis['base_k']}")
-            print(f"   Should Rerank: {analysis['should_rerank']}")
-            
-            # Initial retrieval with hosted embeddings
-            search_params = {
-                "namespace": namespace,
-                "query": {
-                    "inputs": {"text": query},
-                    "top_k": analysis['base_k']
-                },
-                "fields": ["chunk_text", "file_name", "file_path", "language"]
-            }
-            
-            # Add reranking if needed
-            if analysis['should_rerank']:
-                search_params["rerank"] = {
-                    "model": "bge-reranker-v2-m3",  # Pinecone's hosted reranker
-                    "top_n": analysis['rerank_top_n'],
-                    "rank_fields": ["chunk_text"]
-                }
-            
-            # Perform search
-            results = self.index.search(**search_params)
-            
-              
-            if not results or not results.get('result', {}).get('hits'):
-                print("⚠️  No results found")
+            print(f"   Rerank: {analysis['should_rerank']}")
+            print(f"   Token budget: {max_tokens}")
+            print(f"   File hint: {file_hint}")
+            print(f"   Symbol hints: {symbol_hints}")
+
+            # Build metadata filter (Pinecone $and / $eq / $in)
+            metadata_filter = self._build_metadata_filter(file_hint, symbol_hints)
+
+            # Attempt 1: search with the filter (if any)
+            results = self._pinecone_search(query, namespace, analysis, metadata_filter)
+
+            # Attempt 2: if filtered search returned nothing, fall back without filter
+            # (e.g., query mentions a filename that isn't in the index)
+            if metadata_filter and not results.get('result', {}).get('hits'):
+                print("[WARN] Filtered search empty — retrying without filter")
+                results = self._pinecone_search(query, namespace, analysis, filter_=None)
+
+            hits = results.get('result', {}).get('hits', []) if results else []
+            if not hits:
+                print("[WARN] No results found")
                 return []
-            
-            # Process results and manage token limits
+
+            # Assemble results with token budget enforcement
             processed_results = []
             total_tokens = 0
-            
-            for hit in results['result']['hits']:
+            for hit in hits:
                 chunk_text = hit['fields']['chunk_text']
-                
-                # Estimate tokens (rough approximation: 1 token ≈ 4 characters)
-                estimated_tokens = len(chunk_text) // 4
-                
+                estimated_tokens = len(chunk_text) // 4  # rough approximation
                 if total_tokens + estimated_tokens > max_tokens:
-                    print(f"⚠️  Token limit reached. Using {len(processed_results)} chunks.")
+                    print(f"[WARN] Token budget reached at {len(processed_results)} chunks")
                     break
-                
+
                 processed_results.append({
                     'text': chunk_text,
                     'file_name': hit['fields'].get('file_name', 'unknown'),
                     'file_path': hit['fields'].get('file_path', 'unknown'),
                     'language': hit['fields'].get('language', 'unknown'),
+                    'line_start': hit['fields'].get('line_start'),
+                    'line_end': hit['fields'].get('line_end'),
                     'score': hit.get('_score', 0),
-                    'reranked': analysis['should_rerank']
+                    'reranked': analysis['should_rerank'],
+                    'filter_applied': bool(metadata_filter),
                 })
-                
                 total_tokens += estimated_tokens
-            
-            print(f"✅ Retrieved {len(processed_results)} chunks (~{total_tokens} tokens)")
+
+            print(f"[OK] Retrieved {len(processed_results)} chunks (~{total_tokens} tokens)")
             return processed_results
-            
+
         except Exception as e:
-            print(f"❌ Error in smart retrieval: {e}")
+            print(f"[ERROR] smart_retrieve failed: {e}")
+            import traceback; traceback.print_exc()
             return []
+
+    def _build_metadata_filter(self, file_hint, symbol_hints):
+        """
+        Build a Pinecone metadata filter from extracted hints.
+          - file_hint alone → filter by file_name
+          - symbols alone → filter chunks whose `symbols` list overlaps
+          - both → require both
+        Returns None if no hints (unfiltered search).
+        """
+        clauses = []
+        if file_hint:
+            clauses.append({"file_name": {"$eq": file_hint}})
+        if symbol_hints:
+            # Pinecone doesn't support $in on array fields in every plan; use $in
+            # on the flattened list. If your index doesn't allow this, comment out.
+            clauses.append({"symbols": {"$in": symbol_hints}})
+
+        if not clauses:
+            return None
+        if len(clauses) == 1:
+            return clauses[0]
+        return {"$and": clauses}
+
+    def _pinecone_search(self, query, namespace, analysis, filter_):
+        """Wrapped Pinecone search so we can retry with/without a filter."""
+        search_params = {
+            "namespace": namespace,
+            "query": {
+                "inputs": {"text": query},
+                "top_k": analysis['base_k'],
+            },
+            "fields": ["chunk_text", "file_name", "file_path", "language", "line_start", "line_end"],
+        }
+        if filter_:
+            search_params["query"]["filter"] = filter_
+        if analysis['should_rerank']:
+            search_params["rerank"] = {
+                "model": "bge-reranker-v2-m3",
+                "top_n": analysis['rerank_top_n'],
+                "rank_fields": ["chunk_text"],
+            }
+        return self.index.search(**search_params)
 
 # Factory function to create the enhanced manager
 def create_enhanced_pinecone_manager(index_name: str = "ai-code-reviewer") -> EnhancedPineconeManager:

@@ -4,7 +4,10 @@ pydantic
 langchain
 langchain-community
 langchain-core
+langchain-text-splitters
 groq
 pinecone
 python-dotenv
 python-multipart
+httpx
+supabase

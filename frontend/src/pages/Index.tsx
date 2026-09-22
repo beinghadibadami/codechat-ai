@@ -3,16 +3,12 @@ import { Hero } from '@/components/Hero';
 import { UploadCard } from '@/components/UploadCard';
 import { GitHubCard } from '@/components/GitHubCard';
 import { ChatInterface } from '@/components/ChatInterface';
+import { SEOContent } from '@/components/SEOContent';
 import { useSession } from '@/contexts/SessionContext';
 
 const Index = () => {
   const [showChat, setShowChat] = useState(false);
   const { hasData } = useSession();
-
-  // Show chat interface when data is available
-  const handleAnalysisComplete = () => {
-    setShowChat(true);
-  };
 
   // Auto-show chat when data becomes available
   React.useEffect(() => {
@@ -21,7 +17,7 @@ const Index = () => {
     }
   }, [hasData]);
 
-  // Handle demo chat - show demo mode with dummy data
+  // Handle demo chat
   const handleDemoChat = () => {
     setShowChat(true);
   };
@@ -48,14 +44,16 @@ const Index = () => {
           <GitHubCard />
         </div>
 
-        {/* Trust strip */}
-              </div>
+        {/* SEO landing page copy — real indexable content */}
+        <SEOContent />
+      </div>
 
-      {/* Demo button for testing */}
-      <div className="fixed bottom-4 right-4">
+      {/* Demo button */}
+      <div className="fixed bottom-4 right-4 z-40">
         <button
           onClick={handleDemoChat}
           className="bg-gradient-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg hover:opacity-90 transition-opacity text-sm"
+          aria-label="Try demo chat"
         >
           Demo Chat →
         </button>
