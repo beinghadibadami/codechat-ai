@@ -1,238 +1,483 @@
-/* CodeChat AI Design System - Dark Mode Premium */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* ============================================================================
+   CodeChat AI — Design System
+   Editor-inspired developer workspace. Amber + cyan accents only.
+   Dark: cool near-black panels.  Light: warm editorial paper.
+   ========================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  /* ---------------------------------------------------------------------
+     DARK (default)
+     ------------------------------------------------------------------ */
   :root {
-    /* Dark mode color system */
-    --background: 224 15% 6%;
-    --background-elevated: 224 15% 8%;
-    --background-surface: 224 15% 10%;
-    --foreground: 210 40% 98%;
-    
-    /* Card system */
-    --card: 224 15% 8%;
-    --card-elevated: 224 15% 10%;
-    --card-foreground: 210 40% 98%;
-    
-    /* Interactive elements */
-    --popover: 224 15% 10%;
-    --popover-foreground: 210 40% 98%;
-    
-    /* Brand gradient system */
-    --primary: 270 91% 65%;
-    --primary-dark: 270 91% 55%;
-    --primary-foreground: 210 40% 98%;
-    --accent-pink: 320 91% 65%;
-    --accent-cyan: 190 91% 65%;
-    
-    /* Semantic colors */
-    --secondary: 224 15% 15%;
-    --secondary-foreground: 210 40% 98%;
-    
-    --muted: 224 15% 12%;
-    --muted-foreground: 215 20% 65%;
-    
-    --accent: 224 15% 15%;
-    --accent-foreground: 210 40% 98%;
-    
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    
-    --warning: 38 92% 50%;
-    --warning-foreground: 224 15% 6%;
-    
-    --success: 142 76% 36%;
-    --success-foreground: 210 40% 98%;
-    
-    /* UI elements */
-    --border: 224 15% 20%;
-    --border-elevated: 224 15% 25%;
-    --input: 224 15% 12%;
-    --ring: 270 91% 65%;
-    
-    --radius: 0.75rem;
+    /* Surfaces */
+    --background: 216 17% 6%;          /* #0C0E11 */
+    --surface-panel: 218 17% 9%;       /* #14171C */
+    --surface-raised: 216 17% 12%;     /* #191D23 */
 
-    
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent-pink)) 100%);
-    --gradient-glow: linear-gradient(135deg, hsl(var(--primary) / 0.3) 0%, hsl(var(--accent-pink) / 0.3) 50%, hsl(var(--accent-cyan) / 0.3) 100%);
-    --gradient-border: linear-gradient(135deg, hsl(var(--border-elevated)) 0%, hsl(var(--primary) / 0.3) 100%);
-    
-    /* Motion tokens */
-    --duration-fast: 150ms;
-    --duration-normal: 250ms;
-    --duration-slow: 350ms;
-    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
-    --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    
-    /* Shadows */
-    --shadow-glow: 0 0 50px hsl(var(--primary) / 0.15);
-    --shadow-card: 0 8px 32px hsl(224 15% 0% / 0.4);
-    --shadow-elevated: 0 20px 40px hsl(224 15% 0% / 0.6);
+    /* Text */
+    --foreground: 216 16% 94%;         /* #EDEFF2 */
+    --text-muted: 218 9% 59%;          /* #8D94A0 */
+    --text-faint: 220 11% 38%;         /* #565D6B */
+
+    /* Hairline */
+    --border: 217 15% 17%;             /* #262B33 */
+
+    /* Functional accents — the only two hues allowed */
+    --amber: 36 79% 57%;               /* #E8A33D */
+    --cyan: 172 56% 64%;               /* #6FD6C9 */
+
+    /* ---- shadcn/ui contract (do not rename) ---- */
+    --card: var(--surface-panel);
+    --card-foreground: var(--foreground);
+    --popover: var(--surface-raised);
+    --popover-foreground: var(--foreground);
+
+    --primary: var(--amber);
+    --primary-foreground: 216 17% 6%;  /* dark text on amber */
+
+    --secondary: var(--surface-raised);
+    --secondary-foreground: var(--foreground);
+
+    --muted: var(--surface-raised);
+    --muted-foreground: var(--text-muted);
+
+    --accent: var(--surface-raised);
+    --accent-foreground: var(--foreground);
+
+    --destructive: 6 55% 52%;          /* restrained brick, not fire-engine */
+    --destructive-foreground: 216 16% 94%;
+
+    --input: 217 15% 17%;
+    --ring: var(--amber);
+
+    /* Status — reuse the two accents, never new hues */
+    --success: var(--cyan);
+    --success-foreground: 216 17% 6%;
+    --warning: var(--amber);
+    --warning-foreground: 216 17% 6%;
+
+    /* Diff tints — amber removes, cyan adds (never red/green) */
+    --diff-remove-bg: 36 79% 57% / 0.10;
+    --diff-remove-gutter: 36 79% 57% / 0.55;
+    --diff-add-bg: 172 56% 64% / 0.10;
+    --diff-add-gutter: 172 56% 64% / 0.55;
+
+    /* Citation highlight */
+    --citation-bg: 36 79% 57% / 0.14;
+    --citation-edge: 36 79% 57% / 0.70;
+
+    /* Geometry — small radii, editor feel */
+    --radius: 0.375rem;                /* 6px */
+
+    /* Motion */
+    --duration-fast: 120ms;
+    --duration-normal: 180ms;
+    --duration-slow: 260ms;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Editor grid (diagram / empty-state backdrops) */
+    --grid-line: 217 15% 17% / 0.55;
+
+    /* ---- Backwards-compat aliases (existing components reference these) --- */
+    --background-elevated: var(--surface-panel);
+    --background-surface: var(--surface-raised);
+    --border-elevated: 217 15% 22%;
+    --card-elevated: var(--surface-raised);
+    --primary-dark: 36 79% 48%;
   }
 
-  .dark {
-    /* We use the main theme as dark by default */
+  /* ---------------------------------------------------------------------
+     LIGHT — warm editorial, same structural relationships
+     ------------------------------------------------------------------ */
+  .light {
+    --background: 44 35% 94%;          /* #F5F2EA */
+    --surface-panel: 43 54% 97%;       /* #FCFAF5 */
+    --surface-raised: 42 30% 92%;      /* #F0ECE3 */
+
+    --foreground: 210 12% 13%;         /* #1C2024 */
+    --text-muted: 210 8% 44%;          /* #68717A */
+    --text-faint: 100 4% 58%;          /* #92988F */
+
+    --border: 41 20% 81%;              /* #D9D3C6 */
+
+    --amber: 33 77% 41%;               /* #B97118 */
+    --cyan: 177 58% 31%;               /* #217E79 */
+
+    --primary-foreground: 43 54% 97%;  /* light text on darker amber */
+    --destructive: 6 58% 44%;
+    --destructive-foreground: 43 54% 97%;
+    --success-foreground: 43 54% 97%;
+    --warning-foreground: 43 54% 97%;
+
+    --input: 41 20% 81%;
+
+    --diff-remove-bg: 33 77% 41% / 0.10;
+    --diff-remove-gutter: 33 77% 41% / 0.55;
+    --diff-add-bg: 177 58% 31% / 0.10;
+    --diff-add-gutter: 177 58% 31% / 0.55;
+
+    --citation-bg: 33 77% 41% / 0.13;
+    --citation-edge: 33 77% 41% / 0.65;
+
+    --grid-line: 41 20% 81% / 0.75;
+
+    --border-elevated: 41 20% 74%;
+    --primary-dark: 33 77% 34%;
   }
 }
 
+/* ==========================================================================
+   Base
+   ====================================================================== */
 @layer base {
   * {
     @apply border-border;
   }
 
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
-    @apply bg-background text-foreground font-inter antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: 'cv05' 1, 'ss03' 1;
   }
 
-  /* Typography scale */
-  .text-display {
-    @apply text-5xl md:text-6xl font-bold tracking-tight;
+  /* Monospace reserved for code / paths / technical metadata only */
+  code, kbd, pre, samp {
+    font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+    font-variant-ligatures: none;
   }
 
-  .text-heading {
-    @apply text-3xl md:text-4xl font-bold tracking-tight;
+  /* Headings stay in the sans family — never mono */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    @apply tracking-tight;
   }
 
-  .text-subheading {
-    @apply text-xl md:text-2xl font-semibold;
+  /* Consistent, always-visible focus treatment */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
-  .text-code {
-    @apply font-mono text-sm;
+  /* Scrollbars that match the surface */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--border-elevated)); background-clip: content-box; }
+  ::-webkit-scrollbar-corner { background: transparent; }
 }
 
+/* ==========================================================================
+   Components
+   ====================================================================== */
 @layer components {
-  /* Gradient utilities */
-  .bg-gradient-primary {
-    background: var(--gradient-primary);
+
+  /* ---- Panels ---------------------------------------------------------- */
+  .panel {
+    @apply bg-panel border border-border rounded-md;
   }
 
-  .bg-gradient-glow {
-    background: var(--gradient-glow);
+  .panel-raised {
+    @apply bg-raised border border-border rounded-md;
   }
 
-  .border-gradient {
-    border-image: var(--gradient-border) 1;
+  /* Editor-style section header inside a panel */
+  .panel-header {
+    @apply flex items-center justify-between gap-2 px-3 h-9
+           border-b border-border bg-panel/60;
   }
 
-  /* Glass morphism effect */
+  /* Legacy alias — was heavy glassmorphism, now a restrained panel */
   .glass {
-    @apply bg-background-elevated/80 backdrop-blur-xl border border-border-elevated;
+    @apply bg-panel border border-border rounded-md;
   }
 
-  /* Glow effects */
-  .glow {
-    box-shadow: var(--shadow-glow);
+  /* ---- Typography helpers --------------------------------------------- */
+  .text-code {
+    @apply font-mono text-[13px] leading-relaxed;
+  }
+
+  /* Small monospace category tag used in nav / metadata */
+  .tag-mono {
+    @apply font-mono text-[10px] uppercase tracking-wider text-faint;
+  }
+
+  .text-display {
+    @apply text-4xl md:text-5xl font-semibold tracking-tight;
+  }
+  .text-heading {
+    @apply text-2xl md:text-3xl font-semibold tracking-tight;
+  }
+  .text-subheading {
+    @apply text-lg md:text-xl font-semibold;
+  }
+
+  /* ---- Interactive ---------------------------------------------------- */
+  /* Restrained: border + background shift, no scaling or glow */
+  .interactive {
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
   }
 
   .glow-on-hover {
-    transition: box-shadow var(--duration-normal) var(--ease-smooth);
+    transition: border-color var(--duration-normal) var(--ease-out);
   }
-
   .glow-on-hover:hover {
-    box-shadow: var(--shadow-glow);
+    @apply border-border-elevated;
   }
 
-  /* Interactive elements */
-  .interactive {
-    @apply transition-all duration-200 ease-out;
+  /* Flat amber primary — intentionally not a gradient */
+  .bg-gradient-primary {
+    @apply bg-primary text-primary-foreground;
+  }
+  .bg-gradient-glow {
+    background: radial-gradient(
+      circle at center,
+      hsl(var(--amber) / 0.06) 0%,
+      transparent 70%
+    );
   }
 
-  .interactive:hover {
-    @apply scale-[1.02] brightness-110;
-  }
-
-  .interactive:active {
-    @apply scale-[0.98];
-  }
-
-  /* Drop zones */
+  /* ---- Upload dropzone ------------------------------------------------ */
   .dropzone {
-    @apply border-2 border-dashed border-muted-foreground/30 bg-muted/30 rounded-xl transition-all duration-300;
+    @apply border border-dashed border-border bg-raised/40 rounded-md;
+    transition:
+      border-color var(--duration-normal) var(--ease-out),
+      background-color var(--duration-normal) var(--ease-out);
   }
-
   .dropzone.drag-over {
-    @apply border-primary bg-primary/10 shadow-lg;
-    animation: pulse-glow 1.5s ease-in-out infinite;
+    @apply border-primary bg-primary/[0.06];
   }
 
-  /* Code blocks */
+  /* ---- Code ----------------------------------------------------------- */
   .code-block {
-    @apply bg-background-surface rounded-lg border border-border p-4 overflow-auto;
+    @apply bg-raised border border-border rounded-md overflow-auto;
   }
-
   .code-block pre {
-    @apply text-code text-muted-foreground;
+    @apply text-code text-foreground;
   }
 
-  /* Message bubbles */
+  /* Inline citation chip — amber, monospace, clearly clickable */
+  .citation-chip {
+    @apply inline-flex items-center align-baseline font-mono text-[11px]
+           px-1.5 py-px rounded-sm border
+           border-primary/35 bg-primary/10 text-primary
+           hover:bg-primary/20 hover:border-primary/60
+           cursor-pointer;
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+
+  /* Unverifiable citation — muted, not clickable, marked with title */
+  .citation-chip-unverified {
+    @apply inline-flex items-center align-baseline font-mono text-[11px]
+           px-1.5 py-px rounded-sm border border-dashed
+           border-border text-faint cursor-help;
+  }
+
+  /* Highlighted line range inside the code preview */
+  .line-cited {
+    background-color: hsl(var(--citation-bg));
+    box-shadow: inset 2px 0 0 hsl(var(--citation-edge));
+  }
+
+  /* ---- Diff ----------------------------------------------------------- */
+  .diff-line { @apply font-mono text-[13px] leading-[1.6] whitespace-pre; }
+
+  .diff-add {
+    background-color: hsl(var(--diff-add-bg));
+    box-shadow: inset 2px 0 0 hsl(var(--diff-add-gutter));
+  }
+  .diff-remove {
+    background-color: hsl(var(--diff-remove-bg));
+    box-shadow: inset 2px 0 0 hsl(var(--diff-remove-gutter));
+  }
+
+  /* ---- Chat messages -------------------------------------------------- */
+  /* Editor-style grouping. No floating rounded bubbles. */
+  .message-row {
+    @apply relative border-b border-border/60 py-5;
+  }
+  .message-gutter {
+    @apply font-mono text-[10px] uppercase tracking-wider shrink-0 w-14 pt-0.5;
+  }
+
+  /* Legacy aliases kept so pre-existing markup keeps rendering sanely */
   .message-bubble {
-    @apply bg-card border border-border rounded-2xl p-4 shadow-sm;
+    @apply rounded-md px-4 py-3 border;
   }
-
   .message-bubble.user {
-    @apply bg-gradient-primary text-primary-foreground ml-12;
+    @apply bg-raised border-border text-foreground;
+  }
+  .message-bubble.assistant {
+    @apply bg-transparent border-transparent px-0 py-0;
   }
 
-  .message-bubble.assistant {
-    @apply mr-12;
+  /* ---- Editor grid backdrop ------------------------------------------ */
+  .grid-backdrop {
+    background-image:
+      linear-gradient(to right, hsl(var(--grid-line)) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--grid-line)) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  /* ---- Keyboard hint -------------------------------------------------- */
+  .kbd {
+    @apply inline-flex items-center gap-0.5 font-mono text-[10px]
+           px-1.5 py-0.5 rounded-sm border border-border bg-raised text-muted;
   }
 }
 
+/* ==========================================================================
+   Utilities
+   ====================================================================== */
 @layer utilities {
-  /* Custom animations */
-  @keyframes pulse-glow {
-    0%, 100% { 
-      box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
-    }
-    50% { 
-      box-shadow: 0 0 40px hsl(var(--primary) / 0.5);
-    }
-  }
-
-  @keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-  }
-
   @keyframes fade-in-up {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  /* Streaming caret at the end of assistant text */
+  @keyframes caret-blink {
+    0%, 45%  { opacity: 1; }
+    55%, 100% { opacity: 0; }
+  }
+  /* Indeterminate indexing bar — restrained sweep, not a rainbow */
+  @keyframes indeterminate {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(300%); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
   }
 
-  .animate-gradient {
-    background-size: 200% 200%;
-    animation: gradient-shift 3s ease infinite;
+  .animate-fade-in-up  { animation: fade-in-up var(--duration-slow) var(--ease-out); }
+  .animate-fade-in     { animation: fade-in var(--duration-normal) var(--ease-out); }
+  .animate-slide-in-right { animation: slide-in-right var(--duration-normal) var(--ease-out); }
+  .animate-float       { animation: float 4s ease-in-out infinite; }
+
+  .streaming-caret::after {
+    content: '';
+    @apply inline-block w-[2px] h-[1.05em] ml-0.5 align-text-bottom bg-primary;
+    animation: caret-blink 1.05s steps(1) infinite;
   }
 
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
+  .indexing-sweep::after {
+    content: '';
+    @apply absolute inset-y-0 left-0 w-1/3 bg-primary/70;
+    animation: indeterminate 1.4s var(--ease-in-out) infinite;
   }
 
-  .animate-fade-in-up {
-    animation: fade-in-up 0.6s ease-out;
-  }
-
-  /* Focus styles */
   .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+           focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Hide scrollbar but keep scrolling (horizontal chip rows) */
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* Screen-reader only */
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+  }
+}
+
+/* ==========================================================================
+   Markdown (react-markdown output inside assistant messages)
+   ====================================================================== */
+@layer components {
+  .md-body {
+    @apply text-[14.5px] leading-[1.7] text-foreground;
+  }
+  .md-body > * + * { @apply mt-3.5; }
+
+  .md-body h1 { @apply text-xl font-semibold mt-6 mb-2; }
+  .md-body h2 { @apply text-lg font-semibold mt-6 mb-2; }
+  .md-body h3 { @apply text-[15px] font-semibold mt-5 mb-1.5; }
+
+  .md-body p { @apply text-foreground/90; }
+
+  .md-body ul { @apply list-disc pl-5 space-y-1.5; }
+  .md-body ol { @apply list-decimal pl-5 space-y-1.5; }
+  .md-body li { @apply text-foreground/90; }
+  .md-body li::marker { color: hsl(var(--text-faint)); }
+
+  .md-body a {
+    @apply text-cyan underline decoration-cyan/35 underline-offset-2
+           hover:decoration-cyan;
+  }
+
+  .md-body strong { @apply font-semibold text-foreground; }
+
+  .md-body code:not(pre code) {
+    @apply font-mono text-[12.5px] px-1 py-0.5 rounded-sm
+           bg-raised border border-border text-foreground;
+  }
+
+  .md-body blockquote {
+    @apply border-l-2 border-primary/50 pl-3 text-muted italic;
+  }
+
+  .md-body table { @apply w-full text-[13px] border-collapse; }
+  .md-body th {
+    @apply text-left font-medium text-muted font-mono text-[11px] uppercase tracking-wider
+           px-2.5 py-1.5 border-b border-border;
+  }
+  .md-body td { @apply px-2.5 py-1.5 border-b border-border/60 align-top; }
+
+  .md-body hr { @apply border-border; }
+}
+
+/* ==========================================================================
+   Reduced motion — show final states, drop decoration
+   ====================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Purely decorative motion is removed outright */
+  .animate-float,
+  .indexing-sweep::after {
+    animation: none !important;
+  }
+
+  /* Keep the caret visible rather than blinking */
+  .streaming-caret::after {
+    animation: none !important;
+    opacity: 1;
   }
 }

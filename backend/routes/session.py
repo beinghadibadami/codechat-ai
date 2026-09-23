@@ -11,14 +11,19 @@ router = APIRouter(tags=["session"])
 
 @router.get("/session-info", response_model=SessionInfoResponse)
 def get_session_info():
-    """Get current session information"""
+    """Current session state — drives the top bar and sidebar in the UI."""
     session = session_service.get_session()
     has_data = session_service.has_data()
-    
+
     return {
         "namespace": session["namespace"],
         "has_data": has_data,
         "files_processed": session.get("files_processed", 0),
+        "source_type": session.get("source_type"),
+        "repo_url": session.get("repo_url"),
+        "repo_name": session.get("repo_name"),
+        "indexing": session.get("indexing", False),
+        "github_user": session.get("github_user"),
         "features": {
             "hosted_embeddings": True,
             "reranking": True,

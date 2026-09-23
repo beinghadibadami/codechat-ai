@@ -62,6 +62,12 @@ class SessionInfoResponse(BaseModel):
     has_data: bool
     files_processed: int
     features: Dict[str, bool]
+    # Source metadata — lets the UI label the active codebase
+    source_type: Optional[str] = None   # "github" | "upload"
+    repo_url: Optional[str] = None
+    repo_name: Optional[str] = None
+    indexing: bool = False
+    github_user: Optional[str] = None
 
 
 class UploadResponse(BaseModel):

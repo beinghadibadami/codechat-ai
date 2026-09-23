@@ -1,247 +1,139 @@
-"use client";
+/**
+ * MessageFormatter — renders an assistant message.
+ *
+ * Handles markdown, fenced code with copy, Mermaid blocks, and inline
+ * [file:line] citations that resolve against the retrieved sources for that
+ * message. Citations we can't match to a source render as muted text rather
+ * than a dead link.
+ */
+import React, { useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { Copy, Check } from 'lucide-react';
+import { renderWithCitations } from '@/lib/citations';
+import { MermaidBlock } from '@/components/MermaidBlock';
+import { codeTheme } from '@/lib/codeTheme';
+import type { Citation } from '@/components/FileViewer';
+import type { ChatSource } from '@/services/api';
 
-import React, { useState, useMemo } from "react";
-import { motion } from "framer-motion";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { atomDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
-import { Copy, Check } from "lucide-react";
-import { renderWithCitations } from "@/lib/citations";
-import type { Citation } from "@/components/FileViewer";
-
-interface MessageFormatterProps {
+interface Props {
   content: string;
-  /**
-   * Optional list of source files retrieved for this message.
-   * If provided, only citations whose file matches (or ends with) one of
-   * these paths will render as clickable — the rest render as muted text
-   * so we don't create broken links when the LLM invents filenames.
-   */
-  sources?: Array<{ file_name?: string | null; file_path?: string | null }>;
+  /** Retrieved chunks for this message — used to validate citations */
+  sources?: ChatSource[];
   onCitationClick?: (citation: Citation) => void;
 }
 
-// Copy Button Component
-const CopyButton: React.FC<{ text: string; className?: string }> = ({ text, className = "" }) => {
+const CodeCopyButton: React.FC<{ text: string }> = ({ text }) => {
   const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
-    }
-  };
-
   return (
     <button
-      onClick={handleCopy}
-      className={`absolute top-2 right-2 p-1.5 bg-gray-700/80 hover:bg-gray-600/80 rounded-md transition-colors group ${className}`}
-      title={copied ? "Copied!" : "Copy code"}
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1600);
+        } catch {
+          /* clipboard blocked — nothing useful to show */
+        }
+      }}
+      className="absolute top-1.5 right-1.5 h-6 w-6 grid place-items-center rounded-sm
+                 border border-border bg-panel/90 text-faint
+                 opacity-0 group-hover:opacity-100 focus-visible:opacity-100
+                 hover:text-foreground interactive
+                 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      aria-label={copied ? 'Copied' : 'Copy code'}
+      title={copied ? 'Copied' : 'Copy code'}
     >
       {copied ? (
-        <Check className="w-4 h-4 text-green-400" />
+        <Check className="w-3 h-3 text-cyan" aria-hidden />
       ) : (
-        <Copy className="w-4 h-4 text-gray-300 group-hover:text-white" />
+        <Copy className="w-3 h-3" aria-hidden />
       )}
     </button>
   );
 };
 
-export const MessageFormatter: React.FC<MessageFormatterProps> = ({
-  content,
-  sources,
-  onCitationClick,
-}) => {
-  // Build a Set of known file paths + names so citation validation is O(1)
+export const MessageFormatter: React.FC<Props> = ({ content, sources, onCitationClick }) => {
+  /** Set of known file names + paths, so citation validation is O(1). */
   const getKnownFiles = useMemo(() => {
-    return () => {
-      const set = new Set<string>();
-      for (const s of sources ?? []) {
-        if (s.file_name) set.add(s.file_name);
-        if (s.file_path) set.add(s.file_path);
-      }
-      return set;
-    };
+    const set = new Set<string>();
+    for (const s of sources ?? []) {
+      if (s.file_name) set.add(s.file_name);
+      if (s.file_path) set.add(s.file_path);
+    }
+    return () => set;
   }, [sources]);
 
-  // Wrap the children of any text-containing component with the citation walker
+  /** Wrap text-bearing nodes so [file:line] tokens become chips. */
   const withCites = (children: React.ReactNode) =>
-    onCitationClick
-      ? renderWithCitations(children, onCitationClick, getKnownFiles)
-      : children;
+    onCitationClick ? renderWithCitations(children, onCitationClick, getKnownFiles) : children;
 
   return (
-    <div className="prose prose-invert max-w-none break-words overflow-hidden">
+    <div className="md-body">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          // Headings
-          h1: ({ children }) => (
-            <motion.h1
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-2xl font-bold text-purple-500 mt-6 mb-4 break-words"
-            >
-              {withCites(children)}
-            </motion.h1>
-          ),
-          h2: ({ children }) => (
-            <motion.h2
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-xl font-bold text-purple-400 mt-5 mb-3 break-words"
-            >
-              {withCites(children)}
-            </motion.h2>
-          ),
-          h3: ({ children }) => (
-            <motion.h3
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-lg font-bold text-purple-300 mt-4 mb-2 break-words"
-            >
-              {withCites(children)}
-            </motion.h3>
-          ),
+          h1: ({ children }) => <h1>{withCites(children)}</h1>,
+          h2: ({ children }) => <h2>{withCites(children)}</h2>,
+          h3: ({ children }) => <h3>{withCites(children)}</h3>,
+          p: ({ children }) => <p>{withCites(children)}</p>,
+          li: ({ children }) => <li>{withCites(children)}</li>,
+          td: ({ children }) => <td>{withCites(children)}</td>,
 
-          // Paragraphs with better spacing
-          p: ({ children }) => (
-            <motion.p
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-4 text-gray-100 leading-relaxed break-words whitespace-pre-wrap"
-            >
-              {withCites(children)}
-            </motion.p>
-          ),
+          code: ({ className, children, ...props }) => {
+            const match = /language-(\w+)/.exec(className ?? '');
+            const text = String(children).replace(/\n$/, '');
 
-          // Lists with better spacing
-          ul: ({ children }) => (
-            <motion.ul
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="list-disc ml-6 mb-4 text-gray-200 space-y-2"
-            >
-              {children}
-            </motion.ul>
-          ),
-          ol: ({ children }) => (
-            <motion.ol
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="list-decimal ml-6 mb-4 text-gray-200 space-y-2"
-            >
-              {children}
-            </motion.ol>
-          ),
-          li: ({ children }) => (
-            <li className="mb-2 break-words leading-relaxed">{withCites(children)}</li>
-          ),
-
-          // Enhanced code blocks with copy button
-          code: ({ className, children, ...props }: any) => {
-            const match = /language-(\w+)/.exec(className || "");
-            const codeString = String(children).replace(/\n$/, "");
-            const inline = !match;
-            
-            if (inline) {
-              return (
-                <code className="bg-gray-800 text-purple-300 px-1.5 py-0.5 rounded text-sm break-words">
-                  {children}
-                </code>
-              );
+            // Inline code
+            if (!match) {
+              return <code {...props}>{children}</code>;
             }
-            
+
+            const lang = match[1];
+
+            // Mermaid fences become live diagrams
+            if (lang === 'mermaid') {
+              return <MermaidBlock chart={text} />;
+            }
+
             return (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="my-4 overflow-hidden relative group"
-              >
-                <CopyButton text={codeString} />
+              <div className="group relative my-3.5 rounded-md border border-border overflow-hidden">
+                <div className="flex items-center h-7 px-2.5 border-b border-border bg-raised/60">
+                  <span className="tag-mono">{lang}</span>
+                </div>
+                <CodeCopyButton text={text} />
                 <SyntaxHighlighter
-                  style={atomDark}
-                  language={match ? match[1] : "text"}
+                  language={lang}
+                  style={codeTheme}
                   PreTag="div"
                   customStyle={{
-                    borderRadius: "0.5rem",
-                    fontSize: "0.875rem",
-                    padding: "1rem",
-                    paddingTop: "2.5rem", // Space for copy button
-                    background: "#282a36",
-                    overflowX: "auto",
-                    maxWidth: "100%",
+                    margin: 0,
+                    background: 'transparent',
+                    padding: '0.75rem',
+                    fontSize: '12.5px',
+                    lineHeight: 1.6,
                   }}
-                  wrapLines={true}
-                  wrapLongLines={true}
+                  codeTagProps={{ style: { fontFamily: 'JetBrains Mono, ui-monospace, monospace' } }}
+                  wrapLongLines
                 >
-                  {codeString}
+                  {text}
                 </SyntaxHighlighter>
-              </motion.div>
+              </div>
             );
           },
 
-          // Better table handling with copy option
           table: ({ children }) => (
-            <div className="overflow-x-auto my-4 relative group">
-              <CopyButton 
-                text={extractTableText(children)} 
-                className="top-0 right-0" 
-              />
-              <table className="min-w-full border-collapse border border-gray-600 text-sm">
-                {children}
-              </table>
+            <div className="my-3.5 overflow-x-auto rounded-md border border-border">
+              <table>{children}</table>
             </div>
           ),
-          thead: ({ children }) => (
-            <thead className="bg-gray-800">{children}</thead>
-          ),
-          tbody: ({ children }) => (
-            <tbody>{children}</tbody>
-          ),
-          tr: ({ children }) => (
-            <tr className="border-b border-gray-600">{children}</tr>
-          ),
-          td: ({ children }) => (
-            <td className="border border-gray-600 px-3 py-2 break-words max-w-xs">
-              {children}
-            </td>
-          ),
-          th: ({ children }) => (
-            <th className="border border-gray-600 px-3 py-2 font-semibold text-purple-300">
-              {children}
-            </th>
-          ),
 
-          // Links
           a: ({ children, href }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-purple-300 underline hover:text-purple-200 break-words"
-            >
+            <a href={href} target="_blank" rel="noopener noreferrer">
               {children}
             </a>
-          ),
-
-          // Block quotes for better emphasis
-          blockquote: ({ children }) => (
-            <motion.blockquote
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="border-l-4 border-purple-500 pl-4 my-4 italic text-gray-300 bg-gray-800/30 py-2 rounded-r relative group"
-            >
-              <CopyButton 
-                text={extractTextFromChildren(children)} 
-                className="top-2 right-2" 
-              />
-              {children}
-            </motion.blockquote>
           ),
         }}
       >
@@ -250,20 +142,3 @@ export const MessageFormatter: React.FC<MessageFormatterProps> = ({
     </div>
   );
 };
-
-// Helper functions for extracting text from React elements
-function extractTableText(children: any): string {
-  // Simple text extraction for tables - can be enhanced
-  return "Table content"; // Implement based on your needs
-}
-
-function extractTextFromChildren(children: any): string {
-  if (typeof children === 'string') return children;
-  if (Array.isArray(children)) {
-    return children.map(extractTextFromChildren).join('');
-  }
-  if (children?.props?.children) {
-    return extractTextFromChildren(children.props.children);
-  }
-  return '';
-}

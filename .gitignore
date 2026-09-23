@@ -1,4 +1,6 @@
-# Root gitignore for both backend and frontend
+# Root gitignore for both backend and frontend.
+# Patterns are depth-agnostic (no leading path) so they match nested
+# directories too, e.g. backend/services/__pycache__ as well as backend/__pycache__.
 
 # OS
 .DS_Store
@@ -17,7 +19,6 @@ lerna-debug.log*
 .env
 .env.*
 !.env.example
-*.env.local
 
 # Editor/IDE
 .vscode/*
@@ -29,50 +30,56 @@ lerna-debug.log*
 *.sln
 *.sw?
 
-# Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/dist-ssr/
-frontend/*.local
-frontend/.eslintcache
-frontend/.cache/
-frontend/.turbo/
+# ---------- Frontend ----------
+node_modules/
+dist/
+dist-ssr/
+.eslintcache
+.cache/
+.turbo/
+.vite/
+*.local
 
-# Backend (Python)
-backend/__pycache__/
-backend/*.py[cod]
-backend/*$py.class
-backend/.venv/
-backend/venv/
-backend/env/
-backend/ENV/
-backend/.python-version
+# ---------- Backend (Python) ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.installed.cfg
+.venv/
+venv/
+env/
+ENV/
+.python-version
 
 # Packaging
-backend/build/
-backend/dist/
-backend/.eggs/
-backend/*.egg-info/
-backend/.installed.cfg
+build/
 
 # Test/coverage
-backend/.pytest_cache/
-backend/.coverage
-backend/.coverage.*
-backend/htmlcov/
-backend/.tox/
-backend/.mypy_cache/
-backend/.pytype/
-backend/.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.pytype/
+.ruff_cache/
 
 # Jupyter
-backend/.ipynb_checkpoints/
+.ipynb_checkpoints/
 
 # Data/runtime storage
 /data/
 /tmp/
-/tmp/rag-data/
 rag-data/
+
+# Large binaries / archives that shouldn't be committed by mistake
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
 
 # Misc
 *.pid
@@ -82,3 +89,4 @@ rag-data/
 # frontend/yarn.lock
 # frontend/pnpm-lock.yaml
 # frontend/package-lock.json
+# frontend/bun.lockb

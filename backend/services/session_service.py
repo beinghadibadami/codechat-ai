@@ -33,6 +33,11 @@ class SessionService:
             "files_processed": 0,
             "github_token": None,
             "github_user": None,
+            # Source metadata — surfaced in the UI top bar / sidebar
+            "source_type": None,   # "github" | "upload" | None
+            "repo_url": None,
+            "repo_name": None,
+            "indexing": False,     # True while an upload/clone is in flight
         }
 
     def get_session(self) -> Dict:
@@ -42,11 +47,23 @@ class SessionService:
         self,
         path: Optional[str] = None,
         files_processed: Optional[int] = None,
+        source_type: Optional[str] = None,
+        repo_url: Optional[str] = None,
+        repo_name: Optional[str] = None,
+        indexing: Optional[bool] = None,
     ):
         if path is not None:
             self.current_session["path"] = path
         if files_processed is not None:
             self.current_session["files_processed"] = files_processed
+        if source_type is not None:
+            self.current_session["source_type"] = source_type
+        if repo_url is not None:
+            self.current_session["repo_url"] = repo_url
+        if repo_name is not None:
+            self.current_session["repo_name"] = repo_name
+        if indexing is not None:
+            self.current_session["indexing"] = indexing
 
     def reset_session(self) -> Dict:
         """

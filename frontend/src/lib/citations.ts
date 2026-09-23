@@ -70,24 +70,43 @@ export const renderWithCitations = (
         if (typeof part === 'string') return part;
         // If we have a list of known source files, verify the citation
         // matches one before rendering it as a link
-        const isKnown = !knownFiles || knownFiles.has(part.file) ||
+        const isKnown =
+          !knownFiles ||
+          knownFiles.has(part.file) ||
           Array.from(knownFiles).some(f => f.endsWith(part.file));
+
+        // An unresolvable citation is shown but not made clickable — better
+        // than a dead link that silently fails on click.
         if (!isKnown) {
-          return React.createElement('span', {
-            key: `${keyPrefix}-${i}`,
-            className: 'text-muted-foreground',
-            title: 'Citation could not be verified in retrieved sources',
-          }, part.raw);
+          return React.createElement(
+            'span',
+            {
+              key: `${keyPrefix}-${i}`,
+              className: 'citation-chip-unverified',
+              title: 'This file was not among the retrieved sources for this answer',
+            },
+            part.raw
+          );
         }
-        return React.createElement('button', {
-          key: `${keyPrefix}-${i}`,
-          onClick: () => onCitationClick(part),
-          className:
-            'inline px-1 py-0 mx-0.5 rounded text-xs font-mono ' +
-            'bg-primary/10 text-primary hover:bg-primary/20 ' +
-            'transition-colors cursor-pointer align-baseline',
-          title: `Open ${part.file}${part.lineStart ? ` at line ${part.lineStart}` : ''}`,
-        }, part.raw);
+
+        const lineLabel = part.lineStart
+          ? `${part.file} line ${part.lineStart}${
+              part.lineEnd && part.lineEnd !== part.lineStart ? ` to ${part.lineEnd}` : ''
+            }`
+          : part.file;
+
+        return React.createElement(
+          'button',
+          {
+            key: `${keyPrefix}-${i}`,
+            type: 'button',
+            onClick: () => onCitationClick(part),
+            className: 'citation-chip',
+            title: `Open ${lineLabel}`,
+            'aria-label': `Open ${lineLabel}`,
+          },
+          part.raw
+        );
       });
     }
 
@@ -96,14 +115,10 @@ export const renderWithCitations = (
     }
 
     // React element — recurse into its children if any
-    if (React.isValidElement(node)) {
-      const props = node.props as any;
-      if (props?.children) {
-        return React.cloneElement(
-          node,
-          undefined,
-          render(props.children, `${keyPrefix}-c`)
-        );
+    if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
+      const { children } = node.props;
+      if (children) {
+        return React.cloneElement(node, undefined, render(children, `${keyPrefix}-c`));
       }
     }
 

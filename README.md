@@ -11,16 +11,49 @@ AI-powered code analysis with RAG. Upload a codebase or connect a GitHub repo, t
 ## Features
 
 - **RAG-based Q&A** — semantic retrieval + reranking, grounded in your code
-- **Streaming responses** — first token in ~1.8s, feels 10× faster than blocking
-- **Inline citations** — LLM cites `[main.py:12-34]`; click to open the file at that line
-- **Architecture diagrams** — auto-generated Mermaid dependency graphs
-- **Multi-turn chat** — history sent back to the LLM, older turns auto-summarized
-- **GitHub OAuth** — one-click private repo access, no PAT copy-paste
-- **Shareable sessions** — copy a `/s/<id>` link, send read-only Q&A to teammates
-- **Multi-key Groq pool** — rotate across accounts, auto-cooldown on rate limits
-- **Prompt-injection hardened** — retrieved code is fenced, LLM refuses role-play
+- **Streaming responses** — first token in ~1.8s, with blocking fallback if SSE is buffered
+- **Inline citations** — the model cites `[main.py:12-34]`; click to open that line in the source pane
+- **Architecture diagrams** — Mermaid dependency graph parsed from real imports; click a node to read the file
+- **PR-aware chat** — reference `#412` in any question and the diff is fetched and attached automatically
+- **Multi-turn chat** — recent turns are sent verbatim, older ones auto-summarised
+- **GitHub OAuth** — private repos without copy-pasting a token (PAT still supported as a fallback)
+- **Shareable sessions** — `/s/<id>` read-only links with working citations and follow-up questions
+- **Multi-key Groq pool** — rotates across accounts, cools down rate-limited keys
+- **Prompt-injection hardened** — retrieved code is fenced as data; the model refuses role-play and off-topic drift
+- **Dark and light themes** — warm editorial light mode, cool near-black dark mode, persisted
 
 See [`RAG_FLOW_EXPLAINED.md`](./RAG_FLOW_EXPLAINED.md) for how the pipeline actually works.
+
+---
+
+## Interface
+
+The app is a multi-route workspace behind a shared shell (sidebar + top bar):
+
+| Route | Purpose |
+|---|---|
+| `/` | Workspace — connect a source, or jump off into a ready codebase |
+| `/chat` | Three-pane chat: file tree · conversation · source preview |
+| `/files` | Browse and read any indexed file |
+| `/architecture` | Dependency graph, click-through to source |
+| `/pulls` | Pull request list, diff viewer, and diff-focused chat |
+| `/shared` | Manage read-only share links |
+| `/settings` | Connections, theme, active session |
+| `/s/:id` | Public read-only conversation (no shell) |
+
+**Design system.** Editor-inspired: 1px hairlines, small radii, two functional
+accents only — amber for primary actions, selections and citations; cyan for
+links, metadata and system state. Diffs use amber for removals and cyan for
+additions plus explicit `+`/`-` glyphs, so nothing depends on colour alone.
+IBM Plex Sans for UI, JetBrains Mono reserved for code, paths and technical
+metadata. `prefers-reduced-motion` is honoured throughout.
+
+**Architecture note.** The frontend stays on Vite + React Router rather than
+migrating to Next.js. The product is a fully client-side authenticated
+workspace talking to a separate FastAPI service, so SSR and API routes buy
+nothing, while SSE streaming, `localStorage` persistence, the OAuth redirect
+handshake and lazy Mermaid loading would all need re-verification. Crawlable
+content is served via real markup plus a `noscript` fallback in `index.html`.
 
 ---
 
@@ -163,28 +196,44 @@ codechat-ai/
 │   ├── tests/                     # test_api.py, test_features.py, test_e2e.py
 │   └── requirements.txt
 └── frontend/
+    ├── index.html                  # Meta tags, JSON-LD, noscript fallback
+    ├── tailwind.config.ts          # Design tokens
     ├── src/
-    │   ├── App.tsx                # Router + providers (ErrorBoundary, Theme)
+    │   ├── index.css               # Palette, typography, component classes
+    │   ├── App.tsx                 # Routes + providers
     │   ├── pages/
-    │   │   ├── Index.tsx          # Landing + upload
-    │   │   └── SharedSession.tsx  # /s/:id read-only viewer
+    │   │   ├── Workspace.tsx       # Source launcher / indexing / ready
+    │   │   ├── Chat.tsx            # Three-pane chat workspace
+    │   │   ├── Files.tsx           # Explorer + reader
+    │   │   ├── Architecture.tsx    # Mermaid dependency graph
+    │   │   ├── Pulls.tsx           # PR list, diff, diff-chat
+    │   │   ├── Shared.tsx          # Share link management
+    │   │   ├── Settings.tsx        # Connections, theme, session
+    │   │   └── SharedSession.tsx   # /s/:id public read-only view
     │   ├── components/
-    │   │   ├── ChatInterface.tsx  # Main chat UI (header actions, streaming)
-    │   │   ├── GitHubCard.tsx     # Repo URL + OAuth/PAT input
-    │   │   ├── FileViewer.tsx     # Citation modal with line highlight
-    │   │   ├── ArchitectureView.tsx # Mermaid modal
-    │   │   ├── MessageFormatter.tsx # Markdown + citation parsing
-    │   │   ├── ErrorBoundary.tsx  # Global crash guard
-    │   │   ├── ThemeToggle.tsx    # Dark / light
-    │   │   └── LoadingSkeleton.tsx
+    │   │   ├── shell/              # AppShell, Sidebar, TopBar, CommandPalette
+    │   │   ├── source/             # GithubSource, LocalSource
+    │   │   ├── chat/               # MessageRow, Composer
+    │   │   ├── workspace/          # FileExplorer, CodePreview
+    │   │   ├── pulls/              # DiffViewer
+    │   │   ├── states/             # EmptyState, ErrorState, IndexingState
+    │   │   ├── MessageFormatter.tsx
+    │   │   ├── MermaidBlock.tsx
+    │   │   ├── FileViewer.tsx      # Modal wrapper around CodePreview
+    │   │   ├── ErrorBoundary.tsx
+    │   │   └── ThemeToggle.tsx
     │   ├── hooks/
-    │   │   ├── useChatHistory.ts  # localStorage persistence
-    │   │   ├── useApiWithRetry.ts # Exponential backoff
-    │   │   └── useGithubAuth.ts   # OAuth status polling
+    │   │   ├── useChat.ts          # Send / stream / stop / retry
+    │   │   ├── useChatHistory.ts   # localStorage persistence
+    │   │   └── useGithubAuth.ts    # OAuth status
     │   ├── lib/
-    │   │   ├── citations.ts       # [file:line] regex + React-tree walker
-    │   │   └── exportChat.ts      # Markdown / JSON export
-    │   └── services/api.ts        # Typed backend client
+    │   │   ├── citations.ts        # [file:line] parsing + React-tree walker
+    │   │   ├── codeTheme.ts        # Prism theme built from design tokens
+    │   │   ├── mermaid.ts          # Lazy, theme-aware Mermaid singleton
+    │   │   ├── shares.ts           # Local share registry
+    │   │   └── exportChat.ts       # Markdown / JSON export
+    │   ├── contexts/SessionContext.tsx  # Session state + indexing poll
+    │   └── services/api.ts         # Typed backend client (incl. SSE)
     └── package.json
 ```
 
@@ -219,6 +268,13 @@ codechat-ai/
 **Architecture**
 - `GET /architecture?max_nodes=50` — Mermaid diagram + node/edge stats
 
+**Pull requests**
+- `GET /pulls?state=open` — list PRs on the connected repo
+- `GET /pulls/{n}` — PR metadata, changed files with patches, review comments
+- `POST /pulls/resolve` — turn a PR URL into `{owner, repo, number}`
+- `POST /pulls/{n}/chat` — ask about a diff (diff + RAG context combined)
+- `POST /pulls/{n}/review` — generated review: summary, risks, what to look at
+
 **Sharing**
 - `POST /share/create` — snapshot current session, returns share id
 - `GET /share/{id}` — read-only snapshot + messages
@@ -236,11 +292,23 @@ cd backend
 # Unit + validation tests (no external calls)
 python tests/test_api.py            # 23 tests
 
-# Feature-specific tests (some hit Groq, mostly local)
+# Feature tests: Groq pool, history compression, streaming, citations, graph
 python tests/test_features.py       # 15 tests
+
+# Pull requests + session source metadata (GitHub calls are mocked)
+python tests/test_pulls.py          # 15 tests
 
 # Full end-to-end: clones a real repo, embeds, queries, streams
 python tests/test_e2e.py            # Skips if API keys missing
+```
+
+Frontend checks:
+
+```bash
+cd frontend
+node node_modules/typescript/bin/tsc --noEmit -p tsconfig.app.json   # types
+npm run lint
+npm run build
 ```
 
 E2E benchmarks on `pypa/sampleproject`:
@@ -279,7 +347,11 @@ Update `settings.CORS_ORIGINS` in `backend/config.py` to include your production
 
 **Share button disabled or 503** → Supabase isn't configured. Follow the schema setup above.
 
-**Streaming shows nothing, then everything at once** → your reverse proxy is buffering SSE. On Nginx add `proxy_buffering off` for the `/chat/stream` route. Render doesn't need any tweak.
+**Streaming shows nothing, then everything at once** → your reverse proxy is buffering SSE. On Nginx add `proxy_buffering off` for the `/chat/stream` route. Render doesn't need any tweak. The client falls back to the blocking `/chat` endpoint if the stream yields nothing, so answers still arrive either way.
+
+**Pull requests tab is disabled** → it needs a GitHub-backed session. Sessions created from local uploads have no remote to read PRs from.
+
+**OAuth redirects to the wrong port** → `FRONTEND_URL` defaults to `http://localhost:8080` because that's what this project's Vite config uses. Set it explicitly if you changed the port.
 
 **Rate-limited by Groq** → add more keys to `GROQ_API_KEYS` (comma-separated). The pool auto-rotates and cools down 429'd keys for 60s.
 
@@ -287,7 +359,6 @@ Update `settings.CORS_ORIGINS` in `backend/config.py` to include your production
 
 ## Roadmap
 
-- Diff/PR-aware chat — auto-fetch PRs via OAuth token when the user references one
 - Query rewriting with a fast model — expand vague queries before embedding
 - Code-aware embeddings — swap `multilingual-e5-large` for `voyage-code-3` or `jina-embeddings-v2-base-code`
 - Per-user sessions — replace the single-process in-memory store with Redis-backed sessions

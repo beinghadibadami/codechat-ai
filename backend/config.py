@@ -8,7 +8,10 @@ import env_loader  # noqa: F401 — loads .env and .env.local on import
 class Settings:
     """Application settings"""
 
-    # API Keys
+    # API Keys.
+    # GROQ_API_KEYS (comma-separated pool) is preferred; GROQ_API is the
+    # legacy single-key form and still works.
+    GROQ_API_KEYS: str = os.getenv("GROQ_API_KEYS", "")
     GROQ_API_KEY: str = os.getenv("GROQ_API", "")
     PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
 
@@ -25,8 +28,9 @@ class Settings:
         "GITHUB_REDIRECT_URI",
         "http://localhost:8000/auth/github/callback"
     )
-    # Where the backend redirects the browser after a successful callback
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    # Where the backend redirects the browser after a successful callback.
+    # Defaults to 8080 because that is the port this project's Vite config uses.
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:8080")
 
     # Supabase (used only for shareable sessions — optional feature)
     # Use the service_role key so the backend can read/write without RLS
@@ -65,12 +69,12 @@ class Settings:
         """Initialize settings and create necessary directories"""
         os.makedirs(self.DATA_DIR, exist_ok=True)
         
-        # Validate required settings (only in production)
-        # Allow empty keys for testing/development
-        if not self.GROQ_API_KEY:
-            print("[WARN] Warning: GROQ_API environment variable not set")
+        # Warn rather than raise so tests and local tooling can import the app
+        # without a full credential set.
+        if not (self.GROQ_API_KEYS or self.GROQ_API_KEY):
+            print("[WARN] No Groq key configured — set GROQ_API_KEYS or GROQ_API")
         if not self.PINECONE_API_KEY:
-            print("[WARN] Warning: PINECONE_API_KEY environment variable not set")
+            print("[WARN] PINECONE_API_KEY not set")
 
 
 # Global settings instance

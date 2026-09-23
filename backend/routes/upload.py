@@ -11,6 +11,7 @@ import json
 from config import settings
 from models.schemas import UploadResponse, GitHubUploadRequest
 from services import session_service, get_pinecone_manager
+from services.github_api import repo_display_name
 from document_loader import clone_repo, load_code_files
 
 router = APIRouter(tags=["upload"])
@@ -44,8 +45,13 @@ async def upload_files(
             print(f"Warning: Failed to parse config: {e}")
     
     temp_dir = tempfile.mkdtemp(dir=settings.DATA_DIR)
-    session_service.update_session(path=temp_dir)
-    
+    session_service.update_session(
+        path=temp_dir,
+        source_type="upload",
+        repo_name=f"{len(files)} local file{'s' if len(files) != 1 else ''}",
+        indexing=True,
+    )
+
     try:
         # Save uploaded files
         for file in files:
@@ -84,16 +90,24 @@ async def upload_files(
                     processed_files += 1
                     print(f"[OK] Processed {os.path.basename(file_path)}: {len(chunks)} chunks")
         
-        session_service.update_session(files_processed=processed_files)
-        
+        session_service.update_session(
+            files_processed=processed_files,
+            repo_name=f"{processed_files} local file{'s' if processed_files != 1 else ''}",
+            indexing=False,
+        )
+
         return {
             "success": True,
             "message": f"Processed {total_chunks} chunks from {processed_files} files",
             "namespace": session["namespace"],
             "config": {"chunk_size": chunk_size, "chunk_overlap": chunk_overlap}
         }
-        
+
+    except HTTPException:
+        session_service.update_session(indexing=False)
+        raise
     except Exception as e:
+        session_service.update_session(indexing=False)
         print(f"[ERROR] upload_files failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -124,12 +138,21 @@ async def upload_github(
     #   3. Otherwise, no token — public repos only
     effective_token = token or session_service.get_github_token()
 
+    # Record source metadata up front so the UI can show "indexing <repo>"
+    session_service.update_session(
+        source_type="github",
+        repo_url=repo_url,
+        repo_name=repo_display_name(repo_url) or repo_url,
+        indexing=True,
+    )
+
     try:
         # Clone into managed data directory (token used once, not logged)
         try:
             folder = clone_repo(repo_url, base_dir=settings.DATA_DIR, token=effective_token)
         except ValueError as clone_err:
             # Friendly error messages from clone_repo bubble up as 400
+            session_service.update_session(indexing=False)
             raise HTTPException(status_code=400, detail=str(clone_err))
         session_service.update_session(path=folder)
         
@@ -166,14 +189,18 @@ async def upload_github(
             )
             print(f"[OK] Batch upserted {len(all_chunks)} chunks from {processed_files} files")
         
-        session_service.update_session(files_processed=processed_files)
-        
+        session_service.update_session(files_processed=processed_files, indexing=False)
+
         return JSONResponse({
             "success": True,
             "message": f"Repository processed: {len(all_chunks)} chunks from {processed_files} files",
             "namespace": session["namespace"]
         })
-    
+
+    except HTTPException:
+        session_service.update_session(indexing=False)
+        raise
     except Exception as e:
+        session_service.update_session(indexing=False)
         print(f"[ERROR] upload_github failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,5 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { apiService, SessionInfo, FileTreeResponse, FileTreeNode } from '@/services/api';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  ReactNode,
+} from 'react';
+import { apiService, SessionInfo, FileTreeNode, SourceType } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface SessionContextType {
@@ -7,6 +15,11 @@ interface SessionContextType {
   fileTree: FileTreeNode[];
   isLoading: boolean;
   hasData: boolean;
+  /** Convenience accessors derived from sessionInfo */
+  sourceType: SourceType | null;
+  repoName: string | null;
+  repoUrl: string | null;
+  isIndexing: boolean;
   refreshSession: () => Promise<void>;
   resetSession: () => Promise<void>;
   refreshFileTree: () => Promise<void>;
@@ -23,31 +36,44 @@ export const useSession = () => {
   return context;
 };
 
-interface SessionProviderProps {
-  children: ReactNode;
-}
+/** How often to re-check session state while an index job is running. */
+const INDEXING_POLL_MS = 2500;
 
-export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) => {
+export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
   const { toast } = useToast();
 
-  const refreshSession = async () => {
+  // Avoids overlapping polls if a refresh is already in flight
+  const inFlight = useRef(false);
+
+  const refreshFileTree = useCallback(async () => {
     try {
-      console.log('Refreshing session...');
+      const response = await apiService.getFileTree();
+      if (response.success) {
+        setFileTree(response.tree);
+        if (response.tree?.length) setHasData(true);
+      } else {
+        setFileTree([]);
+      }
+    } catch (error) {
+      console.error('Failed to refresh file tree:', error);
+      setFileTree([]);
+    }
+  }, []);
+
+  const refreshSession = useCallback(async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
       const info = await apiService.getSessionInfo();
-      console.log('Session info received:', info);
       setSessionInfo(info);
       setHasData(info.has_data);
-      
-      // If session has data, also refresh the file tree to ensure consistency
       if (info.has_data) {
-        console.log('Session has data, refreshing file tree...');
         await refreshFileTree();
       } else {
-        console.log('Session has no data, clearing file tree');
         setFileTree([]);
       }
     } catch (error) {
@@ -55,97 +81,59 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
       setSessionInfo(null);
       setHasData(false);
       setFileTree([]);
-      toast({
-        title: "Session Error",
-        description: "Failed to get session information",
-        variant: "destructive"
-      });
     } finally {
+      inFlight.current = false;
       setIsLoading(false);
     }
-  };
+  }, [refreshFileTree]);
 
-  const resetSession = async () => {
+  const resetSession = useCallback(async () => {
     try {
       setIsLoading(true);
       await apiService.resetSession();
-      await refreshSession();
       setFileTree([]);
       setHasData(false);
-      toast({
-        title: "Session Reset",
-        description: "Session has been reset successfully",
-      });
+      await refreshSession();
+      toast({ title: 'Codebase disconnected' });
     } catch (error) {
       console.error('Failed to reset session:', error);
       toast({
-        title: "Reset Error",
-        description: "Failed to reset session",
-        variant: "destructive"
+        title: 'Reset failed',
+        description: 'Could not disconnect the codebase.',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [refreshSession, toast]);
 
-  const refreshFileTree = async () => {
-    try {
-      console.log('Refreshing file tree...');
-      const response = await apiService.getFileTree();
-      console.log('File tree response:', response);
-      if (response.success) {
-        setFileTree(response.tree);
-        // If we get a successful response with files, ensure hasData is true
-        if (response.tree && response.tree.length > 0) {
-          console.log('Setting hasData to true, found files:', response.tree.length);
-          setHasData(true);
-        }
-      } else {
-        setFileTree([]);
-        if (response.message !== "No files uploaded yet") {
-          toast({
-            title: "File Tree Error",
-            description: response.message || "Failed to load file tree",
-            variant: "destructive"
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Failed to refresh file tree:', error);
-      setFileTree([]);
-      toast({
-        title: "File Tree Error",
-        description: "Failed to load file tree",
-        variant: "destructive"
-      });
-    }
-  };
-
+  // Initial load
   useEffect(() => {
     refreshSession();
-  }, []);
+  }, [refreshSession]);
 
-  // Remove this useEffect as we now call refreshFileTree directly from refreshSession
-  // useEffect(() => {
-  //   if (hasData) {
-  //     refreshFileTree();
-  //   }
-  // }, [hasData]);
+  // Keep polling while the backend reports an active index job so the
+  // status pill and nav unlock without the user refreshing.
+  useEffect(() => {
+    if (!sessionInfo?.indexing) return;
+    const id = window.setInterval(refreshSession, INDEXING_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [sessionInfo?.indexing, refreshSession]);
 
   const value: SessionContextType = {
     sessionInfo,
     fileTree,
     isLoading,
     hasData,
+    sourceType: sessionInfo?.source_type ?? null,
+    repoName: sessionInfo?.repo_name ?? null,
+    repoUrl: sessionInfo?.repo_url ?? null,
+    isIndexing: sessionInfo?.indexing ?? false,
     refreshSession,
     resetSession,
     refreshFileTree,
     setHasData,
   };
 
-  return (
-    <SessionContext.Provider value={value}>
-      {children}
-    </SessionContext.Provider>
-  );
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };

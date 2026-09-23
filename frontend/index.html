@@ -1,24 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="theme-color" content="#0C0E11" />
 
-    <!-- Primary Meta Tags -->
-    <title>CodeChat AI - AI Code Review Tool | Chat with GitHub Repos</title>
-    <meta name="title" content="CodeChat AI - AI Code Review Tool | Chat with GitHub Repos" />
-    <meta name="description" content="Free AI code review tool. Chat with your GitHub repository, get RAG-based code analysis, bug detection, and architecture insights. Upload files or paste a repo URL." />
-    <meta name="keywords" content="AI code review tool, chat with GitHub repo AI, RAG code analysis tool, GitHub repository analysis, AI code assistant, codebase analysis, bug detection AI, code review free" />
+    <!-- Primary -->
+    <title>CodeChat AI — Talk to your code. Build with context.</title>
+    <meta name="title" content="CodeChat AI — Talk to your code. Build with context." />
+    <meta
+      name="description"
+      content="Ask questions about any codebase. Connect a GitHub repository or upload local files, then trace flows, review pull requests, and understand architecture — with every answer linked back to the source."
+    />
+    <meta
+      name="keywords"
+      content="AI code review tool, chat with GitHub repo, RAG code analysis, codebase Q&A, pull request review AI, code architecture diagram, AI code assistant"
+    />
     <meta name="author" content="CodeChat AI" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://codechat-jgxg.onrender.com/" />
 
-    <!-- Open Graph / Facebook / LinkedIn -->
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://codechat-jgxg.onrender.com/" />
-    <meta property="og:title" content="CodeChat AI - AI Code Review Tool | Chat with GitHub Repos" />
-    <meta property="og:description" content="Free AI code review tool. Chat with your GitHub repository, get RAG-based code analysis, bug detection, and architecture insights." />
+    <meta property="og:title" content="CodeChat AI — Talk to your code. Build with context." />
+    <meta
+      property="og:description"
+      content="Ask questions about any codebase. Connect a GitHub repository or upload local files, then trace flows, review pull requests, and understand architecture."
+    />
     <meta property="og:image" content="https://codechat-jgxg.onrender.com/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -28,69 +37,65 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@codechat_ai" />
     <meta name="twitter:creator" content="@codechat_ai" />
-    <meta name="twitter:url" content="https://codechat-jgxg.onrender.com/" />
-    <meta name="twitter:title" content="CodeChat AI - AI Code Review Tool | Chat with GitHub Repos" />
-    <meta name="twitter:description" content="Free AI code review tool. Chat with your GitHub repository, get RAG-based code analysis, bug detection, and architecture insights." />
+    <meta name="twitter:title" content="CodeChat AI — Talk to your code. Build with context." />
+    <meta
+      name="twitter:description"
+      content="Ask questions about any codebase. Connect a GitHub repository or upload local files, then trace flows, review pull requests, and understand architecture."
+    />
     <meta name="twitter:image" content="https://codechat-jgxg.onrender.com/og-image.png" />
 
-    <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 
-    <!-- JSON-LD Structured Data: SoftwareApplication -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "CodeChat AI",
-      "description": "AI-powered code review tool with RAG-based analysis. Chat with GitHub repositories, detect bugs, and get architecture insights.",
-      "url": "https://codechat-jgxg.onrender.com/",
-      "applicationCategory": "DeveloperApplication",
-      "operatingSystem": "Web",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      },
-      "featureList": [
-        "AI-powered code analysis",
-        "GitHub repository chat",
-        "Bug detection",
-        "Architecture review",
-        "RAG-based retrieval",
-        "Multi-language support"
-      ],
-      "author": {
-        "@type": "Organization",
-        "name": "CodeChat AI"
-      }
-    }
-    </script>
+    <!-- Preconnect to the font host so first paint isn't blocked on DNS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-    <!-- JSON-LD Structured Data: WebSite (helps sitelinks in Google) -->
+    <!-- Structured data -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "CodeChat AI",
-      "url": "https://codechat-jgxg.onrender.com/",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": "https://codechat-jgxg.onrender.com/?q={search_term_string}",
-        "query-input": "required name=search_term_string"
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "CodeChat AI",
+        "description": "Ask questions about any codebase. Connect a GitHub repository or upload local source files, then trace flows, review pull requests, and understand architecture with answers linked back to the source.",
+        "url": "https://codechat-jgxg.onrender.com/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "featureList": [
+          "Chat with a codebase",
+          "GitHub repository indexing",
+          "Local file upload",
+          "Pull request and diff analysis",
+          "Architecture dependency diagrams",
+          "File and line level citations",
+          "Shareable read-only sessions"
+        ],
+        "author": { "@type": "Organization", "name": "CodeChat AI" }
       }
-    }
     </script>
   </head>
 
   <body>
-    <!-- SEO fallback content: visible to crawlers before JS loads -->
     <div id="root">
+      <!-- Crawler / no-JS fallback. Replaced by the app on hydration. -->
       <noscript>
-        <h1>CodeChat AI - AI-Powered Code Review Tool</h1>
-        <p>CodeChat AI is a free AI code review tool that lets you chat with your GitHub repositories.
-        Upload code files or paste a GitHub URL to get instant AI-powered code analysis, bug detection,
-        architecture insights, and improvement suggestions using RAG (Retrieval Augmented Generation).</p>
-        <p>Please enable JavaScript to use CodeChat AI.</p>
+        <h1>CodeChat AI — Talk to your code. Build with context.</h1>
+        <p>
+          CodeChat AI lets you ask questions about an entire codebase. Connect a GitHub
+          repository or upload source files from your computer, then ask how a flow works,
+          what a pull request changes, or where a value gets validated. Every answer links
+          back to the file and line it came from.
+        </p>
+        <h2>What you can do</h2>
+        <ul>
+          <li>Chat with an indexed codebase using natural language</li>
+          <li>Connect public or private GitHub repositories</li>
+          <li>Upload local source files or a whole folder</li>
+          <li>Generate architecture and dependency diagrams</li>
+          <li>Review pull requests and reason about diffs</li>
+          <li>Share read-only conversations with teammates</li>
+        </ul>
+        <p>JavaScript is required to use the application.</p>
       </noscript>
     </div>
     <script type="module" src="/src/main.tsx"></script>

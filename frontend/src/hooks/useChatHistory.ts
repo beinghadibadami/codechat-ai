@@ -3,14 +3,10 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 
-export interface MessageSource {
-  file_name?: string | null;
-  file_path?: string | null;
-  language?: string | null;
-  line_start?: number | null;
-  line_end?: number | null;
-  score?: number | null;
-}
+import type { ChatResponse, ChatSource } from '@/services/api';
+
+/** Kept as an alias so older imports keep resolving. */
+export type MessageSource = ChatSource;
 
 export interface Message {
   id: string;
@@ -18,13 +14,8 @@ export interface Message {
   content: string;
   timestamp: Date;
   codeBlocks?: { language: string; code: string }[];
-  metadata?: {
-    chunks_found: number;
-    files_involved: number;
-    file_summary: Record<string, { count: number; language: string }>;
-    retrieval_reranked: boolean;
-    sources?: MessageSource[];
-  };
+  /** Mirrors the backend chat metadata so retrieval info survives a reload. */
+  metadata?: ChatResponse['metadata'];
 }
 
 const STORAGE_KEY = 'codechat-messages';
@@ -51,10 +42,11 @@ const serializeMessages = (messages: Message[]): string => {
  */
 const deserializeMessages = (data: string): Message[] => {
   try {
-    const parsed = JSON.parse(data);
-    return parsed.map((msg: any) => ({
+    // Timestamps round-trip as ISO strings, so revive them into Dates
+    const parsed = JSON.parse(data) as Array<Omit<Message, 'timestamp'> & { timestamp: string }>;
+    return parsed.map(msg => ({
       ...msg,
-      timestamp: new Date(msg.timestamp) // Convert string back to Date
+      timestamp: new Date(msg.timestamp),
     }));
   } catch (error) {
     console.error('Failed to deserialize messages:', error);

@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from config import settings
-from routes import session, upload, chat, files, auth, architecture, share
+from routes import session, upload, chat, files, auth, architecture, share, pulls
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -34,6 +34,7 @@ app.include_router(files.router)
 app.include_router(auth.router)
 app.include_router(architecture.router)
 app.include_router(share.router)
+app.include_router(pulls.router)
 
 
 @app.get("/")
