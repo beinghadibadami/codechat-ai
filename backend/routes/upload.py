@@ -12,9 +12,42 @@ from config import settings
 from models.schemas import UploadResponse, GitHubUploadRequest
 from services import session_service, get_pinecone_manager
 from services.github_api import repo_display_name
-from document_loader import clone_repo, load_code_files
+from document_loader import clone_repo, load_code_files_detailed, LoadStats
 
 router = APIRouter(tags=["upload"])
+
+# Upper bound on vectors per session. Past this the index stops improving
+# answers and starts diluting them, so we truncate and tell the user rather
+# than silently writing thousands of low-value chunks.
+MAX_TOTAL_CHUNKS = 3000
+
+
+def _no_files_detail(stats: LoadStats) -> str:
+    """
+    Explain *why* nothing was indexed. "No valid code files found" is useless
+    when the real reason is that everything was filtered.
+    """
+    if stats.skipped_total == 0:
+        return "No files found. The repository or upload appears to be empty."
+
+    reasons = []
+    if stats.skipped_extension:
+        reasons.append(f"{stats.skipped_extension} with unsupported file types")
+    if stats.skipped_too_large:
+        reasons.append(f"{stats.skipped_too_large} over the size limit")
+    if stats.skipped_aggregate:
+        reasons.append(f"{stats.skipped_aggregate} whole-repo dump files")
+    if stats.skipped_binary:
+        reasons.append(f"{stats.skipped_binary} binary")
+    if stats.skipped_name:
+        reasons.append(f"{stats.skipped_name} generated or config files")
+
+    return (
+        "No indexable source files found — "
+        + ", ".join(reasons)
+        + ". Check that the codebase contains source code rather than only "
+          "assets, data, or generated output."
+    )
 
 
 @router.post("/upload-file", response_model=UploadResponse)
@@ -62,45 +95,57 @@ async def upload_files(
                 contents = await file.read()
                 f.write(contents)
         
-        # Load and process documents
-        documents = load_code_files(temp_dir)
+        # Load and filter documents
+        documents, stats = load_code_files_detailed(temp_dir)
+        print(f"[LOAD] {stats.as_dict()}")
         if not documents:
-            raise HTTPException(status_code=400, detail="No valid code files found")
-        
+            raise HTTPException(status_code=400, detail=_no_files_detail(stats))
+
         total_chunks = 0
         processed_files = 0
-        
+        truncated = False
+
         for doc in documents:
+            if total_chunks >= MAX_TOTAL_CHUNKS:
+                truncated = True
+                break
+
             file_path = getattr(doc, 'metadata', {}).get('source', 'unknown')
             if hasattr(doc, 'source'):
                 file_path = doc.source
-            
-            # Enhanced chunking
+
             chunks = pinecone_manager.chunk_documents([doc], chunk_size, chunk_overlap)
-            
+
             if chunks:
                 success = pinecone_manager.upsert_documents(
-                    chunks, 
-                    session["namespace"], 
+                    chunks,
+                    session["namespace"],
                     file_path
                 )
-                
+
                 if success:
                     total_chunks += len(chunks)
                     processed_files += 1
                     print(f"[OK] Processed {os.path.basename(file_path)}: {len(chunks)} chunks")
-        
+
         session_service.update_session(
             files_processed=processed_files,
             repo_name=f"{processed_files} local file{'s' if processed_files != 1 else ''}",
             indexing=False,
         )
 
+        message = f"Indexed {total_chunks} chunks from {processed_files} files"
+        if stats.skipped_total:
+            message += f" ({stats.skipped_total} files filtered out)"
+        if truncated:
+            message += f". Stopped at the {MAX_TOTAL_CHUNKS}-chunk limit"
+
         return {
             "success": True,
-            "message": f"Processed {total_chunks} chunks from {processed_files} files",
+            "message": message,
             "namespace": session["namespace"],
-            "config": {"chunk_size": chunk_size, "chunk_overlap": chunk_overlap}
+            "config": {"chunk_size": chunk_size, "chunk_overlap": chunk_overlap},
+            "load_stats": stats.as_dict(),
         }
 
     except HTTPException:
@@ -156,20 +201,26 @@ async def upload_github(
             raise HTTPException(status_code=400, detail=str(clone_err))
         session_service.update_session(path=folder)
         
-        documents = load_code_files(folder)
+        documents, stats = load_code_files_detailed(folder)
+        print(f"[LOAD] {stats.as_dict()}")
         if not documents:
-            raise HTTPException(status_code=400, detail="No valid code files found in repository")
-        
+            raise HTTPException(status_code=400, detail=_no_files_detail(stats))
+
         all_chunks = []
         processed_files = 0
-        
+        truncated = False
+
         for doc in documents:
+            if len(all_chunks) >= MAX_TOTAL_CHUNKS:
+                truncated = True
+                break
+
             file_path = getattr(doc, 'metadata', {}).get('source', 'unknown')
             if hasattr(doc, 'source'):
                 file_path = doc.source
-            
-            chunks = pinecone_manager.chunk_documents([doc])
-            
+
+            chunks = pinecone_manager.chunk_documents([doc], chunk_size, chunk_overlap)
+
             # Add file info to each chunk
             for chunk in chunks:
                 chunk.metadata.update({
@@ -177,24 +228,28 @@ async def upload_github(
                     'file_name': os.path.basename(file_path),
                     'language': pinecone_manager._get_file_type(file_path)
                 })
-            
+
             all_chunks.extend(chunks)
             processed_files += 1
-        
+
         # Batch upsert all chunks
         if all_chunks:
-            success = pinecone_manager.batch_upsert_documents(
-                all_chunks, 
-                session["namespace"]
-            )
+            pinecone_manager.batch_upsert_documents(all_chunks, session["namespace"])
             print(f"[OK] Batch upserted {len(all_chunks)} chunks from {processed_files} files")
-        
+
         session_service.update_session(files_processed=processed_files, indexing=False)
+
+        message = f"Indexed {len(all_chunks)} chunks from {processed_files} files"
+        if stats.skipped_total:
+            message += f" ({stats.skipped_total} files filtered out)"
+        if truncated:
+            message += f". Stopped at the {MAX_TOTAL_CHUNKS}-chunk limit"
 
         return JSONResponse({
             "success": True,
-            "message": f"Repository processed: {len(all_chunks)} chunks from {processed_files} files",
-            "namespace": session["namespace"]
+            "message": message,
+            "namespace": session["namespace"],
+            "load_stats": stats.as_dict(),
         })
 
     except HTTPException:

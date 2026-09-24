@@ -6,7 +6,7 @@
  *        indexed codebase as context (so "what could this break?" is answerable).
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import {
   GitPullRequest,
   GitPullRequestClosed,
@@ -180,7 +180,7 @@ const Pulls: React.FC = () => {
   }, []);
 
   // ---- Guards -----------------------------------------------------------
-  if (!isLoading && !hasData) return <Navigate to="/" replace />;
+  if (!isLoading && !hasData) return <Navigate to="/app" replace />;
 
   if (!isLoading && sourceType !== 'github') {
     return (
@@ -192,7 +192,7 @@ const Pulls: React.FC = () => {
             description="This session was created from local file uploads, so there's no remote to read pull requests from. Connect a repository to use this view."
             action={
               <Button size="sm" asChild className="h-8 text-xs">
-                <a href="/">Connect a repository</a>
+                <Link to="/app">Connect a repository</Link>
               </Button>
             }
           />

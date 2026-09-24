@@ -104,6 +104,7 @@ export const MessageRow: React.FC<Props> = ({
                 content={message.content}
                 sources={sources}
                 onCitationClick={onCitationClick}
+                streaming={streaming}
               />
             </div>
           )}

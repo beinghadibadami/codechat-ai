@@ -11,13 +11,41 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
-/** Realistic entry points, phrased the way a developer would ask. */
+/** Shown on an empty thread — broad openers for an unfamiliar codebase. */
 export const SUGGESTED_PROMPTS = [
-  'Trace the checkout flow',
+  'Give me a tour of this codebase',
+  'Draw the request flow as a diagram',
   'Explain this service like I joined today',
-  'Where do we validate the plan?',
-  'What could break if I rename this field?',
-  'Which files have the most dependencies?',
+  'What are the riskiest parts of this code?',
+  'Where does configuration get loaded?',
+];
+
+/**
+ * Always-available quick actions, kept short so the row doesn't dominate the
+ * composer. These stay visible mid-conversation — previously suggestions
+ * vanished after the first message, which left the input bare.
+ */
+export const QUICK_ACTIONS: Array<{ label: string; prompt: string }> = [
+  {
+    label: 'Diagram it',
+    prompt: 'Draw a diagram of how this works, scoped to what we just discussed.',
+  },
+  {
+    label: 'Summarize',
+    prompt: 'Give me a concise summary of this codebase and what it does.',
+  },
+  {
+    label: 'Find bugs',
+    prompt: 'Look for likely bugs, missing error handling, or edge cases in the code we discussed.',
+  },
+  {
+    label: 'Tech stack',
+    prompt: 'What frameworks, libraries and services does this project use?',
+  },
+  {
+    label: 'Latest PR',
+    prompt: 'What does the latest pull request change, and what could it affect?',
+  },
 ];
 
 interface Props {
@@ -76,7 +104,7 @@ export const Composer: React.FC<Props> = ({
   return (
     <div className="border-t border-border bg-panel/70 backdrop-blur-sm">
       <div className="max-w-3xl mx-auto px-4 sm:px-5 py-3">
-        {/* Suggestions */}
+        {/* Openers — only on an empty thread, where a blank input is daunting */}
         {showSuggestions && (
           <div className="mb-2.5">
             <span className="tag-mono">try</span>
@@ -87,9 +115,9 @@ export const Composer: React.FC<Props> = ({
                     type="button"
                     onClick={() => onPickSuggestion?.(p)}
                     disabled={disabled}
-                    className="px-2 py-1 rounded-sm border border-border bg-raised/60
+                    className="px-2.5 py-1.5 rounded-full border border-border bg-raised/60
                                text-xs text-muted whitespace-nowrap
-                               hover:text-foreground hover:border-border-elevated interactive
+                               hover:text-foreground hover:border-primary/40 interactive
                                disabled:opacity-50 disabled:cursor-not-allowed
                                focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
@@ -99,6 +127,29 @@ export const Composer: React.FC<Props> = ({
               ))}
             </ul>
           </div>
+        )}
+
+        {/* Quick actions — persist for the whole conversation */}
+        {!showSuggestions && onPickSuggestion && (
+          <ul className="flex gap-1.5 mb-2 overflow-x-auto no-scrollbar pb-0.5">
+            {QUICK_ACTIONS.map(a => (
+              <li key={a.label} className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onPickSuggestion(a.prompt)}
+                  disabled={disabled || streaming}
+                  title={a.prompt}
+                  className="px-2 py-1 rounded-full border border-border bg-raised/40
+                             text-2xs text-faint whitespace-nowrap
+                             hover:text-foreground hover:border-border-elevated interactive
+                             disabled:opacity-40 disabled:cursor-not-allowed
+                             focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  {a.label}
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
 
         {/* Error + retry */}

@@ -37,30 +37,36 @@ const buildThemeVariables = () => ({
   fontSize: '13px',
 });
 
+/**
+ * `suppressErrorRendering` is the load-bearing option here. Without it, a
+ * failed `render()` makes Mermaid draw its own "Syntax error in text" bomb
+ * graphic into a temp node it appended to <body>, and then leaves that node
+ * behind. Those orphans stack up outside our chat container — one per failed
+ * attempt. With it set, Mermaid calls its internal removeTempElements() and
+ * simply rethrows, so our catch block owns the failure UI.
+ */
+const baseConfig = () => ({
+  startOnLoad: false,
+  theme: 'base' as const,
+  themeVariables: buildThemeVariables(),
+  // Strict sanitises HTML in labels — required since diagram text can
+  // originate from model output.
+  securityLevel: 'strict' as const,
+  suppressErrorRendering: true,
+  flowchart: {
+    curve: 'basis' as const,
+    padding: 14,
+    nodeSpacing: 38,
+    rankSpacing: 56,
+    useMaxWidth: true,
+  },
+});
+
 export const loadMermaid = async (): Promise<MermaidApi> => {
   if (!cached) {
     cached = import('mermaid').then(mod => {
       const mermaid = mod.default;
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: 'base',
-        themeVariables: buildThemeVariables(),
-        // Strict sanitises HTML in labels — required since diagram text can
-        // originate from model output.
-        securityLevel: 'strict',
-        flowchart: {
-          curve: 'basis',
-          padding: 14,
-          nodeSpacing: 38,
-          rankSpacing: 56,
-          useMaxWidth: true,
-        },
-        // Respect the user's motion preference
-        ...(typeof window !== 'undefined' &&
-        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-          ? { sequence: { useMaxWidth: true } }
-          : {}),
-      });
+      mermaid.initialize(baseConfig());
       return mermaid;
     });
   }
@@ -68,17 +74,72 @@ export const loadMermaid = async (): Promise<MermaidApi> => {
 };
 
 /**
- * Re-apply theme variables after a light/dark switch and drop the cache so the
- * next render picks up new colours.
+ * Re-apply theme variables after a light/dark switch so the next render picks
+ * up new colours.
  */
 export const resetMermaidTheme = async () => {
   if (!cached) return;
   const mermaid = await cached;
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: 'base',
-    themeVariables: buildThemeVariables(),
-    securityLevel: 'strict',
-    flowchart: { curve: 'basis', padding: 14, nodeSpacing: 38, rankSpacing: 56, useMaxWidth: true },
-  });
+  mermaid.initialize(baseConfig());
+};
+
+/**
+ * Diagram-type keywords Mermaid understands. Used to tell "the model emitted a
+ * real diagram" apart from "the model emitted a stray fragment in a mermaid
+ * fence" — a lone `classDef` line parses as nothing and would otherwise show
+ * up as a scary render failure.
+ */
+const DIAGRAM_KEYWORDS = [
+  'graph',
+  'flowchart',
+  'sequenceDiagram',
+  'classDiagram',
+  'stateDiagram',
+  'stateDiagram-v2',
+  'erDiagram',
+  'journey',
+  'gantt',
+  'pie',
+  'quadrantChart',
+  'requirementDiagram',
+  'gitGraph',
+  'mindmap',
+  'timeline',
+  'sankey-beta',
+  'xychart-beta',
+  'block-beta',
+  'packet-beta',
+  'architecture-beta',
+  'C4Context',
+  'C4Container',
+  'C4Component',
+  'C4Dynamic',
+  'C4Deployment',
+];
+
+/**
+ * True when the source opens with a diagram declaration, i.e. it is plausibly a
+ * whole diagram rather than a fragment. Leading comments/directives are skipped.
+ */
+export const looksLikeDiagram = (src: string): boolean => {
+  for (const raw of src.split('\n')) {
+    const line = raw.trim();
+    // Skip blanks, %% comments and %%{init}%% directives
+    if (!line || line.startsWith('%%')) continue;
+    return DIAGRAM_KEYWORDS.some(
+      kw => line === kw || line.startsWith(`${kw} `) || line.startsWith(`${kw};`)
+    );
+  }
+  return false;
+};
+
+/**
+ * Strip artefacts that show up in model output: a wrapping ``` fence the
+ * markdown parser didn't consume, and `mermaid` repeated as the first line.
+ */
+export const normalizeDiagramSource = (src: string): string => {
+  let out = src.trim();
+  out = out.replace(/^```[\w-]*\s*\n?/, '').replace(/\n?```\s*$/, '');
+  out = out.replace(/^mermaid\s*\n/i, '');
+  return out.trim();
 };

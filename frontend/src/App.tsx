@@ -7,10 +7,9 @@ import { ThemeProvider } from 'next-themes';
 import { SessionProvider } from '@/contexts/SessionContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
+import Landing from './pages/Landing';
 import Workspace from './pages/Workspace';
 import Chat from './pages/Chat';
-import Files from './pages/Files';
-import Architecture from './pages/Architecture';
 import Pulls from './pages/Pulls';
 import Shared from './pages/Shared';
 import Settings from './pages/Settings';
@@ -42,11 +41,12 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
+                {/* Public marketing page — no app shell */}
+                <Route path="/" element={<Landing />} />
+
                 {/* Workspace areas — all render inside AppShell */}
-                <Route path="/" element={<Workspace />} />
+                <Route path="/app" element={<Workspace />} />
                 <Route path="/chat" element={<Chat />} />
-                <Route path="/files" element={<Files />} />
-                <Route path="/architecture" element={<Architecture />} />
                 <Route path="/pulls" element={<Pulls />} />
                 <Route path="/shared" element={<Shared />} />
                 <Route path="/settings" element={<Settings />} />

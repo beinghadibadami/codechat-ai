@@ -1,7 +1,9 @@
 import { useToast } from '@/hooks/use-toast';
 
-// Prefer env-configured API base in production builds
-const API_BASE_URL = "https://codechat-backend-cb3v.onrender.com" ;
+// Prefer an env-configured API base (set VITE_API_URL in .env.local for
+// local dev against `python main.py` on :8000). Falls back to the deployed
+// backend so production builds keep working without extra config.
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://codechat-backend-cb3v.onrender.com";
 
 export type SourceType = 'github' | 'upload';
 

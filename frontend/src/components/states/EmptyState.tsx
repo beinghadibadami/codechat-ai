@@ -32,38 +32,54 @@ export const EmptyState: React.FC<Props> = ({
 }) => (
   <div
     className={cn(
-      'flex flex-col items-center justify-center text-center px-6 py-14',
-      grid && 'grid-backdrop',
+      'relative flex flex-col items-center justify-center text-center px-6 py-14',
       className
     )}
   >
-    {Icon && (
+    {/* Faint grid behind the icon gives the empty area some structure without
+        competing with the copy. */}
+    {grid && (
       <div
-        className="w-10 h-10 rounded-md border border-border bg-raised
-                   grid place-items-center mb-4"
+        className="absolute inset-0 grid-backdrop fade-mask-edges opacity-50 -z-10"
         aria-hidden
-      >
-        <Icon className="w-4.5 h-4.5 text-muted" />
+      />
+    )}
+
+    {Icon && (
+      <div className="relative mb-5" aria-hidden>
+        {/* Soft amber pool behind the glyph */}
+        <div
+          className="absolute -inset-5 rounded-full blur-2xl"
+          style={{ background: 'hsl(var(--amber) / 0.10)' }}
+        />
+        <div
+          className="relative w-11 h-11 rounded-lg border border-border bg-panel
+                     grid place-items-center"
+        >
+          <Icon className="w-[18px] h-[18px] text-primary" />
+        </div>
       </div>
     )}
 
-    <h3 className="text-[15px] font-semibold text-foreground">{title}</h3>
+    <h3 className="text-base font-semibold text-foreground tracking-tight">{title}</h3>
 
     {description && (
-      <p className="mt-1.5 text-[13px] text-muted max-w-sm leading-relaxed">
+      <p className="mt-2 text-[13px] text-muted max-w-sm leading-relaxed">
         {description}
       </p>
     )}
 
-    {action && <div className="mt-5 flex flex-wrap items-center justify-center gap-2">{action}</div>}
+    {action && (
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">{action}</div>
+    )}
 
     {hints && hints.length > 0 && (
-      <ul className="mt-5 flex flex-wrap items-center justify-center gap-1.5 max-w-lg">
+      <ul className="mt-6 flex flex-wrap items-center justify-center gap-1.5 max-w-lg">
         {hints.map(h => (
           <li
             key={h}
-            className="font-mono text-2xs px-1.5 py-0.5 rounded-sm
-                       border border-border bg-raised/60 text-faint"
+            className="font-mono text-2xs px-2 py-1 rounded-full
+                       border border-border bg-raised/50 text-faint"
           >
             {h}
           </li>

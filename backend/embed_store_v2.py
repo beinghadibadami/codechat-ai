@@ -15,6 +15,24 @@ PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 # Initialize Pinecone client
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
+
+def _as_line_no(value) -> Optional[int]:
+    """
+    Normalise a line number coming back from Pinecone.
+
+    Pinecone's metadata store keeps numbers as doubles, so a stored `20` is
+    returned as `20.0`. Formatted into a citation that becomes "file.py:20.0",
+    which the frontend citation parser rejects — so every citation silently
+    degraded to plain text. Coerce back to int and drop anything unusable.
+    """
+    if value is None:
+        return None
+    try:
+        n = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
 class QueryAnalyzer:
     """Analyzes queries to determine optimal retrieval parameters"""
     
@@ -351,10 +369,45 @@ class EnhancedPineconeManager:
             'line_count': text.count('\n') + 1,
         })
     
+    # Quoted string literals, excluding trivially short ones
+    _STRING_LITERAL_RE = re.compile(r'"[^"\n]{3,}"|\'[^\'\n]{3,}\'|`[^`\n]{3,}`')
+    _LOGIC_TOKEN_RE = re.compile(
+        r'\b(?:if|else|for|while|switch|return|await|async|try|catch|throw|'
+        r'function|def|class|import|require)\b'
+    )
+
+    def _looks_like_content_data(self, text: str) -> bool:
+        """
+        True when a chunk is mostly *data about things* rather than logic.
+
+        Motivating failure: a portfolio site had an `AllProjects` array listing
+        other projects and their stacks ("MongoDB", "Shopify", "Razorpay").
+        Asked what the portfolio was built with, the model read those strings
+        and reported them as the site's own dependencies. Flagging such chunks
+        lets the prompt tell the model the difference between what an app
+        *displays* and what it *uses*.
+        """
+        if len(text) < 120:
+            return False
+
+        strings = self._STRING_LITERAL_RE.findall(text)
+        if len(strings) < 6:
+            return False
+
+        string_chars = sum(len(s) for s in strings)
+        density = string_chars / max(len(text), 1)
+        logic_tokens = len(self._LOGIC_TOKEN_RE.findall(text))
+
+        # Dense in literals and thin on control flow → it's a data table.
+        return density > 0.32 and logic_tokens <= 3
+
     def _classify_chunk_type(self, text: str) -> str:
         """Classify what type of code this chunk contains"""
-        text_lower = text.lower()
-        
+        # Checked first: a data array can still contain arrow functions or
+        # look superficially like a definition.
+        if self._looks_like_content_data(text):
+            return 'content_data'
+
         # Check for different code patterns
         if re.search(r'^\s*class\s+\w+', text, re.MULTILINE):
             return 'class_definition'
@@ -599,8 +652,13 @@ class EnhancedPineconeManager:
                     'file_name': hit['fields'].get('file_name', 'unknown'),
                     'file_path': hit['fields'].get('file_path', 'unknown'),
                     'language': hit['fields'].get('language', 'unknown'),
-                    'line_start': hit['fields'].get('line_start'),
-                    'line_end': hit['fields'].get('line_end'),
+                    # Pinecone stores metadata numbers as doubles, so these come
+                    # back as 20.0 rather than 20. Left uncoerced they render as
+                    # "file.tsx:1.0-18.0", which fails the frontend citation
+                    # regex and silently degrades every citation to plain text.
+                    'line_start': _as_line_no(hit['fields'].get('line_start')),
+                    'line_end': _as_line_no(hit['fields'].get('line_end')),
+                    'chunk_type': hit['fields'].get('chunk_type', 'general_code'),
                     'score': hit.get('_score', 0),
                     'reranked': analysis['should_rerank'],
                     'filter_applied': bool(metadata_filter),
@@ -645,7 +703,10 @@ class EnhancedPineconeManager:
                 "inputs": {"text": query},
                 "top_k": analysis['base_k'],
             },
-            "fields": ["chunk_text", "file_name", "file_path", "language", "line_start", "line_end"],
+            "fields": [
+                "chunk_text", "file_name", "file_path", "language",
+                "line_start", "line_end", "chunk_type",
+            ],
         }
         if filter_:
             search_params["query"]["filter"] = filter_

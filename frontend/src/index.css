@@ -343,6 +343,62 @@
     @apply inline-flex items-center gap-0.5 font-mono text-[10px]
            px-1.5 py-0.5 rounded-sm border border-border bg-raised text-muted;
   }
+
+  /* ======================================================================
+     Landing-page surfaces
+     The marketing page needs more visual weight than the workspace, but it
+     must stay inside the same two-accent palette. Depth comes from layered
+     radial light and hairlines, not from drop shadows or glassmorphism.
+     =================================================================== */
+
+  /* Warm amber light behind the hero, cooler cyan pooling lower down. */
+  .hero-glow {
+    background:
+      radial-gradient(
+        60rem 32rem at 50% -8rem,
+        hsl(var(--amber) / 0.10) 0%,
+        transparent 68%
+      ),
+      radial-gradient(
+        40rem 24rem at 85% 18rem,
+        hsl(var(--cyan) / 0.07) 0%,
+        transparent 70%
+      );
+  }
+
+  /* A fake editor/terminal frame for the hero demo and feature mocks. */
+  .window {
+    @apply rounded-lg border border-border bg-panel overflow-hidden;
+    box-shadow:
+      0 0 0 1px hsl(var(--background)),
+      0 24px 64px -24px hsl(0 0% 0% / 0.55);
+  }
+
+  .window-bar {
+    @apply flex items-center gap-2 h-9 px-3 border-b border-border bg-raised/50;
+  }
+
+  /* Three inert traffic-light dots — purely decorative, hidden from AT. */
+  .window-dots::before {
+    content: '';
+    @apply block w-2 h-2 rounded-full bg-border-elevated;
+    box-shadow: 0.875rem 0 0 hsl(var(--border-elevated)),
+                1.75rem 0 0 hsl(var(--border-elevated));
+  }
+
+  /* Section eyebrow — sentence case, never ALL-CAPS. */
+  .eyebrow {
+    @apply inline-flex items-center gap-1.5 text-xs text-muted;
+  }
+  .eyebrow::before {
+    content: '';
+    @apply w-4 h-px bg-primary/60;
+  }
+
+  /* Bordered stat/feature cell that reads as part of a grid, not a card. */
+  .cell {
+    @apply relative p-5 border-border;
+  }
 }
 
 /* ==========================================================================
@@ -376,10 +432,32 @@
     50%      { transform: translateY(-6px); }
   }
 
+  /* Landing: gentle entrance used on scroll-reveal */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  /* Landing: sweeping highlight along a hairline */
+  @keyframes sweep {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
   .animate-fade-in-up  { animation: fade-in-up var(--duration-slow) var(--ease-out); }
   .animate-fade-in     { animation: fade-in var(--duration-normal) var(--ease-out); }
   .animate-slide-in-right { animation: slide-in-right var(--duration-normal) var(--ease-out); }
   .animate-float       { animation: float 4s ease-in-out infinite; }
+  .animate-rise        { animation: rise 0.5s var(--ease-out) both; }
+
+  /* Fade a decorative grid out towards the bottom so it never fights content */
+  .fade-mask-b {
+    mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 100%);
+  }
+  .fade-mask-edges {
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 40%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 40%, transparent 100%);
+  }
 
   .streaming-caret::after {
     content: '';

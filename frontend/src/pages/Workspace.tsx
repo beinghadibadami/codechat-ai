@@ -12,7 +12,7 @@ import {
   Github,
   HardDrive,
   MessageSquare,
-  FolderTree,
+  Compass,
   Network,
   GitPullRequest,
   ArrowRight,
@@ -26,7 +26,18 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/contexts/SessionContext';
 import { cn } from '@/lib/utils';
 
-const JUMP_OFFS = [
+/**
+ * Entry points from a ready workspace. Most of these seed the chat with a
+ * question rather than navigating somewhere new — reading files and viewing
+ * diagrams both happen inside a conversation now.
+ */
+const JUMP_OFFS: Array<{
+  to: string;
+  icon: React.ElementType;
+  title: string;
+  body: string;
+  needsRepo?: boolean;
+}> = [
   {
     to: '/chat',
     icon: MessageSquare,
@@ -34,16 +45,16 @@ const JUMP_OFFS = [
     body: 'Start a conversation about how this codebase works.',
   },
   {
-    to: '/files',
-    icon: FolderTree,
-    title: 'Browse files',
-    body: 'Read any indexed file with syntax highlighting.',
+    to: '/chat?q=' + encodeURIComponent('Give me a tour of this codebase — what are the main pieces and how do they fit together?'),
+    icon: Compass,
+    title: 'Get oriented',
+    body: 'A guided tour of the main modules and how they connect.',
   },
   {
-    to: '/architecture',
+    to: '/chat?q=' + encodeURIComponent('Draw the request flow from entry point to data layer as a diagram.'),
     icon: Network,
-    title: 'See the structure',
-    body: 'Generate a dependency graph from the imports.',
+    title: 'Diagram a flow',
+    body: 'Ask for a flow and get a rendered diagram inline.',
   },
   {
     to: '/pulls',

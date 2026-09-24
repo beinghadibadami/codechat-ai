@@ -10,14 +10,13 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   MessageSquare,
-  FolderTree,
-  Network,
   GitPullRequest,
   Share2,
   Settings,
   Boxes,
   PanelLeftClose,
   PanelLeftOpen,
+  ArrowLeft,
 } from 'lucide-react';
 import { useSession } from '@/contexts/SessionContext';
 import { SourceBadge } from './SourceBadge';
@@ -34,11 +33,14 @@ interface NavItem {
   needsRepo?: boolean;
 }
 
+/**
+ * Chat is the product; everything else supports it. Files and Architecture
+ * used to be routes here — files now open from citations, and diagrams render
+ * inside answers, so neither needs a destination of its own.
+ */
 const NAV: NavItem[] = [
-  { to: '/', label: 'Workspace', tag: 'src', icon: Boxes },
+  { to: '/app', label: 'Workspace', tag: 'src', icon: Boxes },
   { to: '/chat', label: 'Chat', tag: 'ask', icon: MessageSquare, needsData: true },
-  { to: '/files', label: 'Files', tag: 'tree', icon: FolderTree, needsData: true },
-  { to: '/architecture', label: 'Architecture', tag: 'graph', icon: Network, needsData: true },
   { to: '/pulls', label: 'Pull requests', tag: 'diff', icon: GitPullRequest, needsData: true, needsRepo: true },
   { to: '/shared', label: 'Shared', tag: 'link', icon: Share2 },
   { to: '/settings', label: 'Settings', tag: 'cfg', icon: Settings },
@@ -67,19 +69,29 @@ export const Sidebar: React.FC<Props> = ({ collapsed, onToggleCollapsed, onNavig
         collapsed ? 'w-14' : 'w-sidebar'
       )}
     >
-      {/* Brand */}
-      <div className="h-topbar flex items-center gap-2 px-3 border-b border-border shrink-0">
+      {/* Brand — links out to the marketing page */}
+      <NavLink
+        to="/"
+        className="group h-topbar flex items-center gap-2 px-3 border-b border-border
+                   shrink-0 hover:bg-raised/40 interactive focus-ring"
+        title="Back to codechat.ai"
+      >
         <div
-          className="w-6 h-6 rounded-sm bg-primary/15 border border-primary/30
+          className="relative w-6 h-6 rounded-sm bg-primary/15 border border-primary/30
                      grid place-items-center shrink-0"
           aria-hidden
         >
-          <span className="font-mono text-[11px] font-semibold text-primary">C</span>
+          <span className="font-mono text-[11px] font-semibold text-primary group-hover:opacity-0 transition-opacity">
+            C
+          </span>
+          <ArrowLeft
+            className="w-3 h-3 text-primary absolute opacity-0 group-hover:opacity-100 transition-opacity"
+          />
         </div>
         {!collapsed && (
           <span className="font-semibold text-sm tracking-tight truncate">CodeChat</span>
         )}
-      </div>
+      </NavLink>
 
       {/* Active source */}
       {!collapsed && (

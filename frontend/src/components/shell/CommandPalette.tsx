@@ -18,8 +18,6 @@ import {
 } from '@/components/ui/command';
 import {
   MessageSquare,
-  FolderTree,
-  Network,
   GitPullRequest,
   Share2,
   Settings,
@@ -57,8 +55,10 @@ export const CommandPalette: React.FC<Props> = ({ open, onOpenChange }) => {
 
   const openFile = (path: string) => {
     onOpenChange(false);
-    // /files reads ?path= to preselect — keeps deep links shareable
-    navigate(`/files?path=${encodeURIComponent(path)}`);
+    // Chat reads ?file= and opens that path in the source panel. There's no
+    // standalone file route any more — reading code always happens next to a
+    // conversation.
+    navigate(`/chat?file=${encodeURIComponent(path)}`);
   };
 
   return (
@@ -68,19 +68,13 @@ export const CommandPalette: React.FC<Props> = ({ open, onOpenChange }) => {
         <CommandEmpty>No matches.</CommandEmpty>
 
         <CommandGroup heading="Go to">
-          <CommandItem onSelect={() => go('/')} className="gap-2 text-xs">
+          <CommandItem onSelect={() => go('/app')} className="gap-2 text-xs">
             <Boxes className="w-3.5 h-3.5" aria-hidden /> Workspace
           </CommandItem>
           {hasData && (
             <>
               <CommandItem onSelect={() => go('/chat')} className="gap-2 text-xs">
                 <MessageSquare className="w-3.5 h-3.5" aria-hidden /> Chat
-              </CommandItem>
-              <CommandItem onSelect={() => go('/files')} className="gap-2 text-xs">
-                <FolderTree className="w-3.5 h-3.5" aria-hidden /> Files
-              </CommandItem>
-              <CommandItem onSelect={() => go('/architecture')} className="gap-2 text-xs">
-                <Network className="w-3.5 h-3.5" aria-hidden /> Architecture
               </CommandItem>
               {isGithub && (
                 <CommandItem onSelect={() => go('/pulls')} className="gap-2 text-xs">

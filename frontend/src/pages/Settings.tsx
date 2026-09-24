@@ -153,7 +153,7 @@ const Settings: React.FC = () => {
               <span className="font-mono text-xs">{repoName ?? 'Untitled'}</span>
             ) : (
               <Button size="sm" variant="outline" asChild className="h-7 text-2xs">
-                <Link to="/">Connect</Link>
+                <Link to="/app">Connect</Link>
               </Button>
             )}
           </Row>

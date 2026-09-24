@@ -22,6 +22,11 @@ interface Props {
   /** Retrieved chunks for this message — used to validate citations */
   sources?: ChatSource[];
   onCitationClick?: (citation: Citation) => void;
+  /**
+   * True while this message is still streaming. Diagrams wait for the stream to
+   * finish rather than trying to render every partial fence.
+   */
+  streaming?: boolean;
 }
 
 const CodeCopyButton: React.FC<{ text: string }> = ({ text }) => {
@@ -55,7 +60,12 @@ const CodeCopyButton: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-export const MessageFormatter: React.FC<Props> = ({ content, sources, onCitationClick }) => {
+export const MessageFormatter: React.FC<Props> = ({
+  content,
+  sources,
+  onCitationClick,
+  streaming = false,
+}) => {
   /** Set of known file names + paths, so citation validation is O(1). */
   const getKnownFiles = useMemo(() => {
     const set = new Set<string>();
@@ -95,7 +105,7 @@ export const MessageFormatter: React.FC<Props> = ({ content, sources, onCitation
 
             // Mermaid fences become live diagrams
             if (lang === 'mermaid') {
-              return <MermaidBlock chart={text} />;
+              return <MermaidBlock chart={text} streaming={streaming} />;
             }
 
             return (

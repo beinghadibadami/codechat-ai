@@ -67,6 +67,40 @@ def test_extract_pr_reference():
     print(f'[PASS] extract_pr_reference: {len(positives)} hits, 3 non-matches')
 
 
+def test_wants_latest_pr():
+    """
+    Unnumbered references must resolve, otherwise "explain the latest PR" falls
+    through to plain RAG and the model invents a changelog from current code.
+    """
+    from services.github_api import wants_latest_pr, extract_pr_reference
+
+    positives = [
+        'can u explain the purpose of the latest pull request',
+        'explain the latest PR',
+        'review the most recent pull request',
+        'whats the newest pull request about',
+        'explain the last PR',
+        'summarize recent PRs',
+    ]
+    for text in positives:
+        assert wants_latest_pr(text), f'missed: {text!r}'
+        # An explicit number must not be present for these
+        assert extract_pr_reference(text) is None
+
+    negatives = [
+        'what does main.py do',
+        'refactor the 3 helpers',
+        'what is the latest version of react',
+        'show me recent changes to the parser',
+    ]
+    for text in negatives:
+        assert not wants_latest_pr(text), f'false positive: {text!r}'
+
+    # An explicit number always wins over the "latest" heuristic
+    assert extract_pr_reference('explain the latest PR #99') == 99
+    print(f'[PASS] wants_latest_pr: {len(positives)} hits, {len(negatives)} non-matches')
+
+
 def test_repo_display_name():
     from services.github_api import repo_display_name
 
@@ -256,7 +290,10 @@ def test_chat_attaches_pr_context_when_referenced():
 
 
 def test_chat_ignores_pr_reference_without_repo():
-    """On an upload-only session there's no remote, so no diff is fetched."""
+    """
+    On an upload-only session there's no remote, so no diff is fetched — but we
+    must tell the model that, not stay silent.
+    """
     from services import session_service
 
     session_service.reset_session()
@@ -264,7 +301,7 @@ def test_chat_ignores_pr_reference_without_repo():
 
     with patch('routes.chat.session_service.has_data', return_value=True), \
          patch('routes.chat.get_pinecone_manager') as pm, \
-         patch('routes.chat.query_llm', return_value='answer'):
+         patch('routes.chat.query_llm', return_value='answer') as llm:
 
         pm.return_value.smart_retrieve.return_value = [
             {'text': 'code', 'file_name': 'a.py', 'file_path': 'a.py',
@@ -275,8 +312,68 @@ def test_chat_ignores_pr_reference_without_repo():
         r = client.post('/chat', json={'message': 'what about #412?'})
 
     assert r.status_code == 200
-    assert 'pull_request' not in r.json()['metadata']
-    print('[PASS] chat skips PR lookup when the session has no repo')
+    meta = r.json()['metadata']
+    assert 'pull_request' not in meta
+    # The honesty signal must be present in both metadata and the prompt
+    assert 'pull_request_unavailable' in meta, meta
+    prompt = llm.call_args[0][0]
+    assert '<pull_request_unavailable>' in prompt
+    assert 'must NOT claim' in prompt
+    print('[PASS] chat flags an unavailable PR diff instead of guessing')
+
+
+def test_chat_resolves_latest_pr():
+    """'the latest pull request' should fetch the newest PR's diff."""
+    from services import session_service
+
+    session_service.reset_session()
+    session_service.update_session(
+        source_type='github',
+        repo_url='https://github.com/foo/bar',
+        repo_name='foo/bar',
+    )
+
+    fake = _fake_pr()
+
+    with patch('routes.chat.session_service.has_data', return_value=True), \
+         patch('routes.chat.fetch_latest_pull_request', new=AsyncMock(return_value=fake)), \
+         patch('routes.chat.get_pinecone_manager') as pm, \
+         patch('routes.chat.query_llm', return_value='It adds an idempotency key.'):
+
+        pm.return_value.smart_retrieve.return_value = []
+        pm.return_value.query_analyzer.analyze_query.return_value = {'intent': 'general'}
+
+        r = client.post('/chat', json={'message': 'explain the latest pull request'})
+
+    assert r.status_code == 200, r.text
+    meta = r.json()['metadata']
+    assert meta['pull_request']['number'] == 412
+    assert meta['pull_request']['resolved_from'] == 'latest'
+    print('[PASS] chat resolves an unnumbered "latest PR" reference to a real diff')
+
+
+def test_chat_context_includes_cite_as_line_numbers():
+    """
+    The model can only emit [file:line] citations if the context header carries
+    the line range. This was the root cause of citations lacking line numbers.
+    """
+    from services.llm_service import build_chat_context
+
+    chunks = [{
+        'text': 'def handler(): pass',
+        'file_name': 'chat.py',
+        'file_path': 'routes/chat.py',
+        'language': 'python',
+        'line_start': 20,
+        'line_end': 45,
+        'score': 0.81,
+    }]
+    prompt, _ = build_chat_context(chunks, 'how does chat work?')
+
+    assert 'lines=20-45' in prompt
+    assert 'cite_as=chat.py:20-45' in prompt
+    assert 'cite_as' in prompt
+    print('[PASS] chat context exposes cite_as with line numbers')
 
 
 # ------- Runner -----------------------------------------------------------
@@ -285,6 +382,7 @@ TESTS = [
     test_parse_repo_url_variants,
     test_parse_pr_url,
     test_extract_pr_reference,
+    test_wants_latest_pr,
     test_repo_display_name,
     test_build_diff_context_includes_essentials,
     test_build_diff_context_respects_budget,
@@ -297,6 +395,8 @@ TESTS = [
     test_reset_preserves_github_auth_but_clears_source,
     test_chat_attaches_pr_context_when_referenced,
     test_chat_ignores_pr_reference_without_repo,
+    test_chat_resolves_latest_pr,
+    test_chat_context_includes_cite_as_line_numbers,
 ]
 
 

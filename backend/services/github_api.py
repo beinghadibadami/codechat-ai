@@ -38,6 +38,17 @@ _PR_REF_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Matches an unnumbered reference to the newest PR: "latest PR", "most recent
+# pull request", "last PR". Without this, "explain the latest pull request"
+# silently fell through to plain RAG and the model would describe current code
+# as if it were a diff — confidently, and wrongly.
+_LATEST_PR_RE = re.compile(
+    r"\b(?:latest|most\s+recent|newest|last|recent)\s+"
+    r"(?:merged\s+|open\s+|closed\s+|new\s+)?"
+    r"(?:PRs?|pull\s*requests?)\b",
+    re.IGNORECASE,
+)
+
 
 def _headers(token: Optional[str]) -> Dict[str, str]:
     h = dict(_HEADERS_BASE)
@@ -74,7 +85,7 @@ def parse_pr_url(url: str) -> Optional[Tuple[str, str, int]]:
 
 def extract_pr_reference(text: str) -> Optional[int]:
     """
-    Pull a PR number out of free-form chat text.
+    Pull an explicit PR number out of free-form chat text.
 
     Recognises: "#123", "PR 123", "PR#123", "pull request 123", "pull/123".
     Returns the first match, or None. Deliberately conservative — we don't
@@ -84,6 +95,40 @@ def extract_pr_reference(text: str) -> Optional[int]:
         return None
     m = _PR_REF_RE.search(text)
     return int(m.group(1)) if m else None
+
+
+def wants_latest_pr(text: str) -> bool:
+    """
+    True when the user referred to the newest PR without giving a number,
+    e.g. "explain the latest pull request".
+
+    Checked only after extract_pr_reference() comes back empty, so an explicit
+    number always wins.
+    """
+    if not text:
+        return False
+    return bool(_LATEST_PR_RE.search(text))
+
+
+async def fetch_latest_pull_request(
+    token: Optional[str],
+    owner: str,
+    repo: str,
+    max_files: int = 40,
+) -> Optional[Dict[str, Any]]:
+    """
+    Resolve "the latest PR" to a concrete diff.
+
+    Looks at open PRs first since that's what people usually mean, then falls
+    back to any state so a repo with nothing open still answers.
+    """
+    for state in ("open", "all"):
+        listing = await list_pull_requests(token, owner, repo, state=state, limit=1)
+        if listing:
+            return await fetch_pull_request(
+                token, owner, repo, listing[0]["number"], max_files=max_files
+            )
+    return None
 
 
 async def list_pull_requests(
