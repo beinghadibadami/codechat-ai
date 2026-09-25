@@ -162,7 +162,7 @@ const SharedSession: React.FC = () => {
             <Button size="sm" asChild className="h-8 text-xs gap-1.5">
               <Link to="/">
                 <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
-                Go to CodeChat
+                Go to gitchat
               </Link>
             </Button>
           }
@@ -224,7 +224,7 @@ const SharedSession: React.FC = () => {
 
           <ThemeToggle className="h-8 w-8 p-0 shrink-0" />
           <Button size="sm" variant="outline" asChild className="h-8 text-xs shrink-0">
-            <Link to="/">Open CodeChat</Link>
+            <Link to="/">Open gitchat</Link>
           </Button>
         </div>
       </header>
@@ -252,7 +252,7 @@ const SharedSession: React.FC = () => {
                     )}
                     aria-hidden
                   >
-                    {m.role === 'user' ? 'asked' : 'codechat'}
+                    {m.role === 'user' ? 'asked' : 'gitchat'}
                   </div>
                   <div className="min-w-0 flex-1">
                     {m.local && (

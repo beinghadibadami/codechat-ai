@@ -25,6 +25,7 @@ export default {
       fontFamily: {
         sans: ["IBM Plex Sans", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
+        display: ["Bricolage Grotesque", "IBM Plex Sans", "ui-sans-serif", "system-ui", "sans-serif"],
         // legacy alias — some older markup still says font-inter
         inter: ["IBM Plex Sans", "ui-sans-serif", "system-ui", "sans-serif"],
       },

@@ -3,50 +3,42 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0C0E11" />
+    <meta name="theme-color" content="#0E0D0B" />
 
     <!-- Primary -->
-    <title>CodeChat AI — Talk to your code. Build with context.</title>
-    <meta name="title" content="CodeChat AI — Talk to your code. Build with context." />
+    <title>gitchat — Talk to any codebase like it's a teammate.</title>
+    <meta name="title" content="gitchat — Talk to any codebase like it's a teammate." />
     <meta
       name="description"
-      content="Ask questions about any codebase. Connect a GitHub repository or upload local files, then trace flows, review pull requests, and understand architecture — with every answer linked back to the source."
+      content="Drop a GitHub repo, ask a question in plain English, and get answers grounded in real code. Every answer cites the exact file and line — no hallucinated code. Trace flows, review PRs, and understand architecture."
     />
     <meta
       name="keywords"
-      content="AI code review tool, chat with GitHub repo, RAG code analysis, codebase Q&A, pull request review AI, code architecture diagram, AI code assistant"
+      content="AI code review, chat with codebase, RAG code analysis, codebase Q&A, pull request review AI, code architecture diagram, AI code assistant, GitHub code search"
     />
-    <meta name="author" content="CodeChat AI" />
+    <meta name="author" content="gitchat" />
     <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://codechat-jgxg.onrender.com/" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://codechat-jgxg.onrender.com/" />
-    <meta property="og:title" content="CodeChat AI — Talk to your code. Build with context." />
+    <meta property="og:title" content="gitchat — Talk to any codebase like it's a teammate." />
     <meta
       property="og:description"
-      content="Ask questions about any codebase. Connect a GitHub repository or upload local files, then trace flows, review pull requests, and understand architecture."
+      content="Drop a GitHub repo, ask a question, get answers grounded in real code with file-and-line citations. Trace flows, review PRs, understand architecture."
     />
-    <meta property="og:image" content="https://codechat-jgxg.onrender.com/og-image.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:site_name" content="CodeChat AI" />
+    <meta property="og:site_name" content="gitchat" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@codechat_ai" />
-    <meta name="twitter:creator" content="@codechat_ai" />
-    <meta name="twitter:title" content="CodeChat AI — Talk to your code. Build with context." />
+    <meta name="twitter:title" content="gitchat — Talk to any codebase like it's a teammate." />
     <meta
       name="twitter:description"
-      content="Ask questions about any codebase. Connect a GitHub repository or upload local files, then trace flows, review pull requests, and understand architecture."
+      content="Ask any codebase a question and get answers grounded in real code. Every answer cites the exact file and line."
     />
-    <meta name="twitter:image" content="https://codechat-jgxg.onrender.com/og-image.png" />
 
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 
-    <!-- Preconnect to the font host so first paint isn't blocked on DNS -->
+    <!-- Preconnect to the font host -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
@@ -55,9 +47,8 @@
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
-        "name": "CodeChat AI",
-        "description": "Ask questions about any codebase. Connect a GitHub repository or upload local source files, then trace flows, review pull requests, and understand architecture with answers linked back to the source.",
-        "url": "https://codechat-jgxg.onrender.com/",
+        "name": "gitchat",
+        "description": "Ask questions about any codebase and get answers grounded in real code with file-and-line citations. Supports GitHub repos and local file uploads.",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Web",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -70,31 +61,21 @@
           "File and line level citations",
           "Shareable read-only sessions"
         ],
-        "author": { "@type": "Organization", "name": "CodeChat AI" }
+        "author": { "@type": "Organization", "name": "gitchat" }
       }
     </script>
   </head>
 
   <body>
     <div id="root">
-      <!-- Crawler / no-JS fallback. Replaced by the app on hydration. -->
       <noscript>
-        <h1>CodeChat AI — Talk to your code. Build with context.</h1>
+        <h1>gitchat — Talk to any codebase like it's a teammate.</h1>
         <p>
-          CodeChat AI lets you ask questions about an entire codebase. Connect a GitHub
-          repository or upload source files from your computer, then ask how a flow works,
-          what a pull request changes, or where a value gets validated. Every answer links
-          back to the file and line it came from.
+          gitchat lets you ask questions about an entire codebase. Connect a GitHub
+          repository or upload source files, then ask how a flow works, what a pull
+          request changes, or where a value gets validated. Every answer links back
+          to the file and line it came from.
         </p>
-        <h2>What you can do</h2>
-        <ul>
-          <li>Chat with an indexed codebase using natural language</li>
-          <li>Connect public or private GitHub repositories</li>
-          <li>Upload local source files or a whole folder</li>
-          <li>Generate architecture and dependency diagrams</li>
-          <li>Review pull requests and reason about diffs</li>
-          <li>Share read-only conversations with teammates</li>
-        </ul>
         <p>JavaScript is required to use the application.</p>
       </noscript>
     </div>

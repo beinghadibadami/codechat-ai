@@ -64,7 +64,7 @@ export const MessageRow: React.FC<Props> = ({
           className={cn('message-gutter hidden sm:block', isUser ? 'text-faint' : 'text-primary/70')}
           aria-hidden
         >
-          {isUser ? 'you' : 'codechat'}
+          {isUser ? 'you' : 'gitchat'}
         </div>
 
         {/* Body */}
@@ -76,7 +76,7 @@ export const MessageRow: React.FC<Props> = ({
               isUser ? 'text-faint' : 'text-primary/70'
             )}
           >
-            {isUser ? 'you' : 'codechat'}
+            {isUser ? 'you' : 'gitchat'}
           </span>
 
           {/* PR context notice */}

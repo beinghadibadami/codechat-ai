@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { apiService, SessionInfo, FileTreeNode, SourceType } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
+import { clearStoredMessages } from '@/hooks/useChatHistory';
 
 interface SessionContextType {
   sessionInfo: SessionInfo | null;
@@ -91,6 +92,8 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       setIsLoading(true);
       await apiService.resetSession();
+      // Old conversation belonged to the codebase we just disconnected.
+      clearStoredMessages();
       setFileTree([]);
       setHasData(false);
       await refreshSession();

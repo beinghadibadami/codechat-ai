@@ -1,12 +1,13 @@
 /**
- * Workspace — the entry route.
+ * Workspace — the post-connect landing inside the app shell.
  *
- * Three states:
- *   1. Nothing connected → source launcher (GitHub | Local, equal weight)
- *   2. Indexing in flight → phase list
- *   3. Codebase ready    → summary + jump-off points
+ * Connecting a codebase now happens on the marketing page (HomeConnect), so
+ * this route only ever shows two states:
+ *   1. Indexing in flight → live phase log
+ *   2. Codebase ready      → summary + jump-off points
+ * If someone lands here with no session, send them home to connect.
  */
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Github,
@@ -17,20 +18,13 @@ import {
   GitPullRequest,
   ArrowRight,
   RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import { AppShell } from '@/components/shell/AppShell';
-import { GithubSource } from '@/components/source/GithubSource';
-import { LocalSource } from '@/components/source/LocalSource';
 import { IndexingState } from '@/components/states/IndexingState';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/contexts/SessionContext';
-import { cn } from '@/lib/utils';
 
-/**
- * Entry points from a ready workspace. Most of these seed the chat with a
- * question rather than navigating somewhere new — reading files and viewing
- * diagrams both happen inside a conversation now.
- */
 const JUMP_OFFS: Array<{
   to: string;
   icon: React.ElementType;
@@ -72,7 +66,13 @@ const Workspace: React.FC = () => {
 
   const filesProcessed = sessionInfo?.files_processed ?? 0;
 
-  // Phase is inferred from observable state rather than invented
+  // No session and nothing indexing → connecting happens on the home page.
+  useEffect(() => {
+    if (!isLoading && !hasData && !isIndexing) {
+      navigate('/', { replace: true });
+    }
+  }, [isLoading, hasData, isIndexing, navigate]);
+
   const phase = useMemo(() => {
     if (!isIndexing) return 'done' as const;
     return filesProcessed > 0 ? ('embed' as const) : ('fetch' as const);
@@ -84,12 +84,12 @@ const Workspace: React.FC = () => {
       <AppShell>
         <div className="h-full grid place-items-center px-6 py-16">
           <div className="w-full max-w-md">
-            <p className="tag-mono mb-1.5">indexing</p>
-            <h1 className="text-xl font-semibold tracking-tight">
+            <p className="eyebrow mb-3">indexing</p>
+            <h1 className="font-display text-xl font-bold tracking-tight mb-1.5">
               {repoName ?? 'Your codebase'}
             </h1>
-            <p className="text-[13px] text-muted mt-1.5 mb-7">
-              This runs once. You can leave this page — progress is kept on the server.
+            <p className="text-[13px] text-muted mb-6">
+              This runs once. You can leave — progress is kept on the server.
             </p>
             <IndexingState
               phase={phase}
@@ -111,11 +111,11 @@ const Workspace: React.FC = () => {
     return (
       <AppShell>
         <div className="max-w-4xl mx-auto px-5 sm:px-6 py-10">
-          <p className="tag-mono mb-2">workspace</p>
+          <p className="eyebrow mb-3">workspace</p>
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="min-w-0">
-              <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2 min-w-0">
-                <SourceIcon className="w-5 h-5 text-muted shrink-0" aria-hidden />
+              <h1 className="font-display text-2xl font-bold tracking-tight flex items-center gap-2 min-w-0">
+                <SourceIcon className="w-5 h-5 text-primary shrink-0" aria-hidden />
                 <span className="font-mono truncate">{repoName ?? 'Untitled'}</span>
               </h1>
               <p className="text-[13px] text-muted mt-1.5">
@@ -145,13 +145,13 @@ const Workspace: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate(j.to)}
-                    className="group w-full text-left p-3.5 rounded-md border border-border
-                               bg-panel hover:border-border-elevated hover:bg-raised/40
+                    className="group w-full text-left p-3.5 border border-border
+                               bg-panel hover:border-primary/40 hover:bg-raised/40
                                interactive focus-visible:ring-2 focus-visible:ring-ring
                                focus-visible:outline-none"
                   >
                     <span className="flex items-center gap-2">
-                      <Icon className="w-4 h-4 text-muted shrink-0" aria-hidden />
+                      <Icon className="w-4 h-4 text-primary shrink-0" aria-hidden />
                       <span className="text-[13px] font-medium">{j.title}</span>
                       <ArrowRight
                         className="w-3.5 h-3.5 text-faint ml-auto shrink-0
@@ -172,94 +172,11 @@ const Workspace: React.FC = () => {
     );
   }
 
-  // ---- Nothing connected ------------------------------------------------
+  // ---- Redirecting home -------------------------------------------------
   return (
-    <AppShell>
-      <div className="max-w-5xl mx-auto px-5 sm:px-6 py-10 sm:py-14">
-        <header className="max-w-2xl">
-          <p className="tag-mono mb-2">codechat</p>
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight leading-[1.1]">
-            Talk to your code.
-            <br />
-            <span className="text-muted">Build with context.</span>
-          </h1>
-          <p className="mt-4 text-[14.5px] text-muted leading-relaxed max-w-xl">
-            Point CodeChat at a codebase and ask it anything — how a flow works, what a
-            pull request changes, where a value gets validated. Every answer can be traced
-            back to the file and line it came from.
-          </p>
-        </header>
-
-        {/* Source launcher — two equal paths */}
-        <section className="mt-9" aria-labelledby="source-heading">
-          <h2 id="source-heading" className="text-sm font-medium mb-3">
-            Connect a codebase
-          </h2>
-
-          <div className="grid lg:grid-cols-2 gap-3">
-            {/* GitHub */}
-            <div className="panel flex flex-col p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Github className="w-4 h-4 text-muted" aria-hidden />
-                <h3 className="text-[13px] font-medium">GitHub repository</h3>
-                <span className="tag-mono ml-auto">remote</span>
-              </div>
-              <p className="text-xs text-muted mb-4 leading-relaxed">
-                Index a public repo, or connect your account for private ones.
-              </p>
-              <div className="flex-1">
-                <GithubSource onIndexed={() => navigate('/chat')} />
-              </div>
-            </div>
-
-            {/* Local */}
-            <div className="panel flex flex-col p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <HardDrive className="w-4 h-4 text-muted" aria-hidden />
-                <h3 className="text-[13px] font-medium">Local files</h3>
-                <span className="tag-mono ml-auto">disk</span>
-              </div>
-              <p className="text-xs text-muted mb-4 leading-relaxed">
-                Upload a folder or pick individual source files. Nothing leaves your session.
-              </p>
-              <div className="flex-1 flex flex-col">
-                <LocalSource onIndexed={() => navigate('/chat')} />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* What you can do — real capabilities, not marketing */}
-        <section className="mt-12" aria-labelledby="capabilities-heading">
-          <h2 id="capabilities-heading" className="text-sm font-medium mb-3">
-            What you can ask
-          </h2>
-          <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {[
-              'Trace the checkout flow',
-              'What changed in this pull request?',
-              'Where do we validate the plan?',
-              'Explain this service like I joined today',
-              'What could break if I rename this field?',
-              'Which files depend on the auth guard?',
-            ].map(q => (
-              <li
-                key={q}
-                className={cn(
-                  'px-3 py-2 rounded-md border border-border bg-panel/60',
-                  'text-[13px] text-muted'
-                )}
-              >
-                {q}
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-faint mt-3">
-            {isLoading ? 'Checking for an existing session…' : 'Connect a codebase above to start.'}
-          </p>
-        </section>
-      </div>
-    </AppShell>
+    <div className="min-h-screen grid place-items-center bg-background">
+      <Loader2 className="w-5 h-5 text-primary animate-spin" aria-hidden />
+    </div>
   );
 };
 

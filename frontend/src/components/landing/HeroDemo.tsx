@@ -211,7 +211,7 @@ export const HeroDemo: React.FC<{ className?: string }> = ({ className }) => {
           {/* Answer */}
           {(phase === 'thinking' || phase === 'answering' || phase === 'settled') && (
             <div className="flex items-start gap-2.5 mt-5">
-              <span className="message-gutter text-primary/70 pt-px">codechat</span>
+              <span className="message-gutter text-primary/70 pt-px">gitchat</span>
               <div className="min-w-0 flex-1">
                 {phase === 'thinking' ? (
                   <span className="flex items-center gap-1.5 text-xs text-muted">

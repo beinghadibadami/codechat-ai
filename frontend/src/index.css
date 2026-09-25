@@ -1,10 +1,10 @@
 /* ============================================================================
-   CodeChat AI — Design System
-   Editor-inspired developer workspace. Amber + cyan accents only.
-   Dark: cool near-black panels.  Light: warm editorial paper.
+   gitchat — Design System
+   Warm CRT-terminal aesthetic. Phosphor green + terminal amber on warm black.
+   Monospace-forward, hard edges, scanline atmosphere.
    ========================================================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -12,34 +12,34 @@
 
 @layer base {
   /* ---------------------------------------------------------------------
-     DARK (default)
+     DARK (default) — warm phosphor terminal
      ------------------------------------------------------------------ */
   :root {
-    /* Surfaces */
-    --background: 216 17% 6%;          /* #0C0E11 */
-    --surface-panel: 218 17% 9%;       /* #14171C */
-    --surface-raised: 216 17% 12%;     /* #191D23 */
+    /* Surfaces — warm near-black */
+    --background: 40 9% 5%;            /* #0E0D0B */
+    --surface-panel: 40 8% 8%;        /* #16140F */
+    --surface-raised: 40 7% 12%;      /* #201E17 */
 
-    /* Text */
-    --foreground: 216 16% 94%;         /* #EDEFF2 */
-    --text-muted: 218 9% 59%;          /* #8D94A0 */
-    --text-faint: 220 11% 38%;         /* #565D6B */
+    /* Text — warm off-white */
+    --foreground: 42 24% 90%;         /* #EAE3D3 */
+    --text-muted: 42 8% 55%;          /* #928C7E */
+    --text-faint: 42 7% 34%;          /* #5B564C */
 
     /* Hairline */
-    --border: 217 15% 17%;             /* #262B33 */
+    --border: 40 8% 16%;              /* #2B2820 */
 
-    /* Functional accents — the only two hues allowed */
-    --amber: 36 79% 57%;               /* #E8A33D */
-    --cyan: 172 56% 64%;               /* #6FD6C9 */
+    /* Accents — phosphor green (dominant) + terminal amber (sharp accent) */
+    --amber: 140 62% 52%;             /* #33CC70 — phosphor green (primary) */
+    --cyan: 38 92% 56%;               /* #F5A623 — terminal amber (secondary) */
 
-    /* ---- shadcn/ui contract (do not rename) ---- */
+    /* ---- shadcn/ui contract ---- */
     --card: var(--surface-panel);
     --card-foreground: var(--foreground);
     --popover: var(--surface-raised);
     --popover-foreground: var(--foreground);
 
     --primary: var(--amber);
-    --primary-foreground: 216 17% 6%;  /* dark text on amber */
+    --primary-foreground: 40 10% 5%;  /* dark ink on green */
 
     --secondary: var(--surface-raised);
     --secondary-foreground: var(--foreground);
@@ -50,30 +50,29 @@
     --accent: var(--surface-raised);
     --accent-foreground: var(--foreground);
 
-    --destructive: 6 55% 52%;          /* restrained brick, not fire-engine */
-    --destructive-foreground: 216 16% 94%;
+    --destructive: 4 78% 58%;
+    --destructive-foreground: 42 24% 90%;
 
-    --input: 217 15% 17%;
+    --input: 40 8% 16%;
     --ring: var(--amber);
 
-    /* Status — reuse the two accents, never new hues */
-    --success: var(--cyan);
-    --success-foreground: 216 17% 6%;
-    --warning: var(--amber);
-    --warning-foreground: 216 17% 6%;
+    --success: var(--amber);
+    --success-foreground: 40 10% 5%;
+    --warning: var(--cyan);
+    --warning-foreground: 40 10% 5%;
 
-    /* Diff tints — amber removes, cyan adds (never red/green) */
-    --diff-remove-bg: 36 79% 57% / 0.10;
-    --diff-remove-gutter: 36 79% 57% / 0.55;
-    --diff-add-bg: 172 56% 64% / 0.10;
-    --diff-add-gutter: 172 56% 64% / 0.55;
+    /* Diffs — semantic, phosphor green adds / terminal red removes */
+    --diff-remove-bg: 4 78% 58% / 0.10;
+    --diff-remove-gutter: 4 78% 58% / 0.55;
+    --diff-add-bg: 140 62% 52% / 0.10;
+    --diff-add-gutter: 140 62% 52% / 0.55;
 
-    /* Citation highlight */
-    --citation-bg: 36 79% 57% / 0.14;
-    --citation-edge: 36 79% 57% / 0.70;
+    /* Citation highlight — phosphor green */
+    --citation-bg: 140 62% 52% / 0.13;
+    --citation-edge: 140 62% 52% / 0.70;
 
-    /* Geometry — small radii, editor feel */
-    --radius: 0.375rem;                /* 6px */
+    /* Geometry — hard edges */
+    --radius: 0.125rem;               /* 2px */
 
     /* Motion */
     --duration-fast: 120ms;
@@ -82,54 +81,56 @@
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Editor grid (diagram / empty-state backdrops) */
-    --grid-line: 217 15% 17% / 0.55;
+    /* Terminal grid */
+    --grid-line: 40 8% 16% / 0.5;
 
-    /* ---- Backwards-compat aliases (existing components reference these) --- */
+    /* Backwards-compat aliases */
     --background-elevated: var(--surface-panel);
     --background-surface: var(--surface-raised);
-    --border-elevated: 217 15% 22%;
+    --border-elevated: 40 8% 22%;
     --card-elevated: var(--surface-raised);
-    --primary-dark: 36 79% 48%;
+    --primary-dark: 140 62% 42%;
   }
 
   /* ---------------------------------------------------------------------
-     LIGHT — warm editorial, same structural relationships
+     LIGHT — warm paper terminal printout
      ------------------------------------------------------------------ */
   .light {
-    --background: 44 35% 94%;          /* #F5F2EA */
-    --surface-panel: 43 54% 97%;       /* #FCFAF5 */
-    --surface-raised: 42 30% 92%;      /* #F0ECE3 */
+    --background: 42 38% 92%;         /* #EFE9DA */
+    --surface-panel: 44 46% 96%;      /* #FAF6EC */
+    --surface-raised: 42 30% 88%;     /* #E5DECD */
 
-    --foreground: 210 12% 13%;         /* #1C2024 */
-    --text-muted: 210 8% 44%;          /* #68717A */
-    --text-faint: 100 4% 58%;          /* #92988F */
+    --foreground: 40 15% 12%;         /* #221F19 */
+    --text-muted: 40 8% 40%;          /* #6B655A */
+    --text-faint: 40 8% 56%;          /* #948E80 */
 
-    --border: 41 20% 81%;              /* #D9D3C6 */
+    --border: 42 20% 78%;             /* #CEC5B0 */
 
-    --amber: 33 77% 41%;               /* #B97118 */
-    --cyan: 177 58% 31%;               /* #217E79 */
+    --amber: 148 68% 32%;             /* #1A8A50 — deeper green for contrast */
+    --cyan: 30 82% 42%;               /* #C4711A — deeper amber */
 
-    --primary-foreground: 43 54% 97%;  /* light text on darker amber */
-    --destructive: 6 58% 44%;
-    --destructive-foreground: 43 54% 97%;
-    --success-foreground: 43 54% 97%;
-    --warning-foreground: 43 54% 97%;
+    --primary-foreground: 44 46% 96%;
+    --destructive: 4 70% 46%;
+    --destructive-foreground: 44 46% 96%;
+    --success: var(--amber);
+    --success-foreground: 44 46% 96%;
+    --warning: var(--cyan);
+    --warning-foreground: 44 46% 96%;
 
-    --input: 41 20% 81%;
+    --input: 42 20% 78%;
 
-    --diff-remove-bg: 33 77% 41% / 0.10;
-    --diff-remove-gutter: 33 77% 41% / 0.55;
-    --diff-add-bg: 177 58% 31% / 0.10;
-    --diff-add-gutter: 177 58% 31% / 0.55;
+    --diff-remove-bg: 4 70% 46% / 0.10;
+    --diff-remove-gutter: 4 70% 46% / 0.50;
+    --diff-add-bg: 148 68% 32% / 0.10;
+    --diff-add-gutter: 148 68% 32% / 0.50;
 
-    --citation-bg: 33 77% 41% / 0.13;
-    --citation-edge: 33 77% 41% / 0.65;
+    --citation-bg: 148 68% 32% / 0.12;
+    --citation-edge: 148 68% 32% / 0.60;
 
-    --grid-line: 41 20% 81% / 0.75;
+    --grid-line: 42 20% 78% / 0.7;
 
-    --border-elevated: 41 20% 74%;
-    --primary-dark: 33 77% 34%;
+    --border-elevated: 42 20% 70%;
+    --primary-dark: 148 68% 26%;
   }
 }
 
@@ -143,32 +144,29 @@
 
   html {
     -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
-    font-feature-settings: 'cv05' 1, 'ss03' 1;
   }
 
-  /* Monospace reserved for code / paths / technical metadata only */
   code, kbd, pre, samp {
     font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
     font-variant-ligatures: none;
   }
 
-  /* Headings stay in the sans family — never mono */
+  /* Headings use the display grotesque */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Bricolage Grotesque', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
     @apply tracking-tight;
   }
 
-  /* Consistent, always-visible focus treatment */
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
-  /* Scrollbars that match the surface */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
@@ -186,97 +184,53 @@
    ====================================================================== */
 @layer components {
 
-  /* ---- Panels ---------------------------------------------------------- */
-  .panel {
-    @apply bg-panel border border-border rounded-md;
-  }
-
-  .panel-raised {
-    @apply bg-raised border border-border rounded-md;
-  }
-
-  /* Editor-style section header inside a panel */
+  .panel { @apply bg-panel border border-border; }
+  .panel-raised { @apply bg-raised border border-border; }
   .panel-header {
     @apply flex items-center justify-between gap-2 px-3 h-9
            border-b border-border bg-panel/60;
   }
+  .glass { @apply bg-panel border border-border; }
 
-  /* Legacy alias — was heavy glassmorphism, now a restrained panel */
-  .glass {
-    @apply bg-panel border border-border rounded-md;
-  }
+  .text-code { @apply font-mono text-[13px] leading-relaxed; }
+  .tag-mono { @apply font-mono text-[10px] uppercase tracking-wider text-faint; }
+  .text-display { @apply text-4xl md:text-5xl font-bold tracking-tight; }
+  .text-heading { @apply text-2xl md:text-3xl font-bold tracking-tight; }
+  .text-subheading { @apply text-lg md:text-xl font-semibold; }
 
-  /* ---- Typography helpers --------------------------------------------- */
-  .text-code {
-    @apply font-mono text-[13px] leading-relaxed;
-  }
-
-  /* Small monospace category tag used in nav / metadata */
-  .tag-mono {
-    @apply font-mono text-[10px] uppercase tracking-wider text-faint;
+  /* Display grotesque helper */
+  .font-display {
+    font-family: 'Bricolage Grotesque', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
   }
 
-  .text-display {
-    @apply text-4xl md:text-5xl font-semibold tracking-tight;
-  }
-  .text-heading {
-    @apply text-2xl md:text-3xl font-semibold tracking-tight;
-  }
-  .text-subheading {
-    @apply text-lg md:text-xl font-semibold;
-  }
-
-  /* ---- Interactive ---------------------------------------------------- */
-  /* Restrained: border + background shift, no scaling or glow */
   .interactive {
     transition:
       background-color var(--duration-fast) var(--ease-out),
       border-color var(--duration-fast) var(--ease-out),
       color var(--duration-fast) var(--ease-out);
   }
+  .glow-on-hover { transition: border-color var(--duration-normal) var(--ease-out); }
+  .glow-on-hover:hover { @apply border-border-elevated; }
 
-  .glow-on-hover {
-    transition: border-color var(--duration-normal) var(--ease-out);
-  }
-  .glow-on-hover:hover {
-    @apply border-border-elevated;
-  }
-
-  /* Flat amber primary — intentionally not a gradient */
-  .bg-gradient-primary {
-    @apply bg-primary text-primary-foreground;
-  }
+  .bg-gradient-primary { @apply bg-primary text-primary-foreground; }
   .bg-gradient-glow {
-    background: radial-gradient(
-      circle at center,
-      hsl(var(--amber) / 0.06) 0%,
-      transparent 70%
-    );
+    background: radial-gradient(circle at center, hsl(var(--amber) / 0.06) 0%, transparent 70%);
   }
 
-  /* ---- Upload dropzone ------------------------------------------------ */
   .dropzone {
-    @apply border border-dashed border-border bg-raised/40 rounded-md;
+    @apply border border-dashed border-border bg-raised/40;
     transition:
       border-color var(--duration-normal) var(--ease-out),
       background-color var(--duration-normal) var(--ease-out);
   }
-  .dropzone.drag-over {
-    @apply border-primary bg-primary/[0.06];
-  }
+  .dropzone.drag-over { @apply border-primary bg-primary/[0.06]; }
 
-  /* ---- Code ----------------------------------------------------------- */
-  .code-block {
-    @apply bg-raised border border-border rounded-md overflow-auto;
-  }
-  .code-block pre {
-    @apply text-code text-foreground;
-  }
+  .code-block { @apply bg-raised border border-border overflow-auto; }
+  .code-block pre { @apply text-code text-foreground; }
 
-  /* Inline citation chip — amber, monospace, clearly clickable */
   .citation-chip {
     @apply inline-flex items-center align-baseline font-mono text-[11px]
-           px-1.5 py-px rounded-sm border
+           px-1.5 py-px border
            border-primary/35 bg-primary/10 text-primary
            hover:bg-primary/20 hover:border-primary/60
            cursor-pointer;
@@ -284,23 +238,17 @@
       background-color var(--duration-fast) var(--ease-out),
       border-color var(--duration-fast) var(--ease-out);
   }
-
-  /* Unverifiable citation — muted, not clickable, marked with title */
   .citation-chip-unverified {
     @apply inline-flex items-center align-baseline font-mono text-[11px]
-           px-1.5 py-px rounded-sm border border-dashed
+           px-1.5 py-px border border-dashed
            border-border text-faint cursor-help;
   }
-
-  /* Highlighted line range inside the code preview */
   .line-cited {
     background-color: hsl(var(--citation-bg));
     box-shadow: inset 2px 0 0 hsl(var(--citation-edge));
   }
 
-  /* ---- Diff ----------------------------------------------------------- */
   .diff-line { @apply font-mono text-[13px] leading-[1.6] whitespace-pre; }
-
   .diff-add {
     background-color: hsl(var(--diff-add-bg));
     box-shadow: inset 2px 0 0 hsl(var(--diff-add-gutter));
@@ -310,95 +258,90 @@
     box-shadow: inset 2px 0 0 hsl(var(--diff-remove-gutter));
   }
 
-  /* ---- Chat messages -------------------------------------------------- */
-  /* Editor-style grouping. No floating rounded bubbles. */
-  .message-row {
-    @apply relative border-b border-border/60 py-5;
-  }
+  .message-row { @apply relative border-b border-border/60 py-5; }
   .message-gutter {
     @apply font-mono text-[10px] uppercase tracking-wider shrink-0 w-14 pt-0.5;
   }
+  .message-bubble { @apply px-4 py-3 border; }
+  .message-bubble.user { @apply bg-raised border-border text-foreground; }
+  .message-bubble.assistant { @apply bg-transparent border-transparent px-0 py-0; }
 
-  /* Legacy aliases kept so pre-existing markup keeps rendering sanely */
-  .message-bubble {
-    @apply rounded-md px-4 py-3 border;
-  }
-  .message-bubble.user {
-    @apply bg-raised border-border text-foreground;
-  }
-  .message-bubble.assistant {
-    @apply bg-transparent border-transparent px-0 py-0;
-  }
-
-  /* ---- Editor grid backdrop ------------------------------------------ */
   .grid-backdrop {
     background-image:
       linear-gradient(to right, hsl(var(--grid-line)) 1px, transparent 1px),
       linear-gradient(to bottom, hsl(var(--grid-line)) 1px, transparent 1px);
-    background-size: 22px 22px;
+    background-size: 26px 26px;
   }
 
-  /* ---- Keyboard hint -------------------------------------------------- */
   .kbd {
     @apply inline-flex items-center gap-0.5 font-mono text-[10px]
-           px-1.5 py-0.5 rounded-sm border border-border bg-raised text-muted;
+           px-1.5 py-0.5 border border-border bg-raised text-muted;
   }
 
   /* ======================================================================
-     Landing-page surfaces
-     The marketing page needs more visual weight than the workspace, but it
-     must stay inside the same two-accent palette. Depth comes from layered
-     radial light and hairlines, not from drop shadows or glassmorphism.
+     Landing / terminal surfaces
      =================================================================== */
 
-  /* Warm amber light behind the hero, cooler cyan pooling lower down. */
-  .hero-glow {
-    background:
-      radial-gradient(
-        60rem 32rem at 50% -8rem,
-        hsl(var(--amber) / 0.10) 0%,
-        transparent 68%
-      ),
-      radial-gradient(
-        40rem 24rem at 85% 18rem,
-        hsl(var(--cyan) / 0.07) 0%,
-        transparent 70%
-      );
+  /* Faint CRT scanlines — horizontal lines, very low opacity. */
+  .scanlines {
+    position: relative;
+  }
+  .scanlines::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      hsl(var(--foreground) / 0.025) 0px,
+      hsl(var(--foreground) / 0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    z-index: 1;
   }
 
-  /* A fake editor/terminal frame for the hero demo and feature mocks. */
+  /* Single soft phosphor pool behind the hero — no rainbow gradients. */
+  .phosphor-glow {
+    background:
+      radial-gradient(48rem 30rem at 18% -4rem, hsl(var(--amber) / 0.10) 0%, transparent 62%),
+      radial-gradient(36rem 22rem at 92% 8rem, hsl(var(--cyan) / 0.06) 0%, transparent 66%);
+  }
+
+  /* Terminal window frame */
   .window {
-    @apply rounded-lg border border-border bg-panel overflow-hidden;
+    @apply border border-border bg-panel overflow-hidden;
     box-shadow:
       0 0 0 1px hsl(var(--background)),
-      0 24px 64px -24px hsl(0 0% 0% / 0.55);
+      0 30px 70px -30px hsl(var(--amber) / 0.18),
+      0 20px 60px -24px hsl(0 0% 0% / 0.6);
   }
-
   .window-bar {
-    @apply flex items-center gap-2 h-9 px-3 border-b border-border bg-raised/50;
+    @apply flex items-center gap-2 h-9 px-3 border-b border-border bg-raised/60;
   }
-
-  /* Three inert traffic-light dots — purely decorative, hidden from AT. */
   .window-dots::before {
     content: '';
-    @apply block w-2 h-2 rounded-full bg-border-elevated;
-    box-shadow: 0.875rem 0 0 hsl(var(--border-elevated)),
-                1.75rem 0 0 hsl(var(--border-elevated));
+    @apply block w-2 h-2 rounded-full;
+    background: hsl(var(--destructive));
+    box-shadow: 0.875rem 0 0 hsl(var(--cyan)),
+                1.75rem 0 0 hsl(var(--amber));
   }
 
-  /* Section eyebrow — sentence case, never ALL-CAPS. */
+  /* Terminal prompt marker */
+  .prompt::before {
+    content: '$';
+    @apply text-primary mr-2 font-mono;
+  }
+
   .eyebrow {
-    @apply inline-flex items-center gap-1.5 text-xs text-muted;
+    @apply inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-primary;
   }
   .eyebrow::before {
-    content: '';
-    @apply w-4 h-px bg-primary/60;
+    content: '//';
+    @apply text-primary/60;
   }
 
-  /* Bordered stat/feature cell that reads as part of a grid, not a card. */
-  .cell {
-    @apply relative p-5 border-border;
-  }
+  .cell { @apply relative p-5 border-border; }
 }
 
 /* ==========================================================================
@@ -417,12 +360,10 @@
     from { opacity: 0; transform: translateX(8px); }
     to   { opacity: 1; transform: translateX(0); }
   }
-  /* Streaming caret at the end of assistant text */
   @keyframes caret-blink {
     0%, 45%  { opacity: 1; }
     55%, 100% { opacity: 0; }
   }
-  /* Indeterminate indexing bar — restrained sweep, not a rainbow */
   @keyframes indeterminate {
     0%   { transform: translateX(-100%); }
     100% { transform: translateX(300%); }
@@ -431,16 +372,27 @@
     0%, 100% { transform: translateY(0); }
     50%      { transform: translateY(-6px); }
   }
-
-  /* Landing: gentle entrance used on scroll-reveal */
   @keyframes rise {
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  /* Landing: sweeping highlight along a hairline */
   @keyframes sweep {
     0%   { transform: translateX(-100%); }
     100% { transform: translateX(100%); }
+  }
+  /* Terminal cursor blink */
+  @keyframes term-blink {
+    0%, 50%  { opacity: 1; }
+    50.01%, 100% { opacity: 0; }
+  }
+  /* Faint flicker for the phosphor glow */
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    92% { opacity: 1; }
+    93% { opacity: 0.82; }
+    94% { opacity: 1; }
+    97% { opacity: 0.9; }
+    98% { opacity: 1; }
   }
 
   .animate-fade-in-up  { animation: fade-in-up var(--duration-slow) var(--ease-out); }
@@ -448,8 +400,14 @@
   .animate-slide-in-right { animation: slide-in-right var(--duration-normal) var(--ease-out); }
   .animate-float       { animation: float 4s ease-in-out infinite; }
   .animate-rise        { animation: rise 0.5s var(--ease-out) both; }
+  .animate-flicker     { animation: flicker 6s linear infinite; }
 
-  /* Fade a decorative grid out towards the bottom so it never fights content */
+  .term-cursor::after {
+    content: '';
+    @apply inline-block w-[0.5em] h-[1.05em] ml-1 align-text-bottom bg-primary;
+    animation: term-blink 1.1s steps(1) infinite;
+  }
+
   .fade-mask-b {
     mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 100%);
     -webkit-mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 100%);
@@ -464,7 +422,6 @@
     @apply inline-block w-[2px] h-[1.05em] ml-0.5 align-text-bottom bg-primary;
     animation: caret-blink 1.05s steps(1) infinite;
   }
-
   .indexing-sweep::after {
     content: '';
     @apply absolute inset-y-0 left-0 w-1/3 bg-primary/70;
@@ -476,11 +433,9 @@
            focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 
-  /* Hide scrollbar but keep scrolling (horizontal chip rows) */
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
 
-  /* Screen-reader only */
   .sr-only-focusable:not(:focus):not(:focus-within) {
     position: absolute; width: 1px; height: 1px;
     padding: 0; margin: -1px; overflow: hidden;
@@ -492,9 +447,7 @@
    Markdown (react-markdown output inside assistant messages)
    ====================================================================== */
 @layer components {
-  .md-body {
-    @apply text-[14.5px] leading-[1.7] text-foreground;
-  }
+  .md-body { @apply text-[14.5px] leading-[1.7] text-foreground; }
   .md-body > * + * { @apply mt-3.5; }
 
   .md-body h1 { @apply text-xl font-semibold mt-6 mb-2; }
@@ -509,20 +462,17 @@
   .md-body li::marker { color: hsl(var(--text-faint)); }
 
   .md-body a {
-    @apply text-cyan underline decoration-cyan/35 underline-offset-2
-           hover:decoration-cyan;
+    @apply text-cyan underline decoration-cyan/35 underline-offset-2 hover:decoration-cyan;
   }
 
   .md-body strong { @apply font-semibold text-foreground; }
 
   .md-body code:not(pre code) {
-    @apply font-mono text-[12.5px] px-1 py-0.5 rounded-sm
+    @apply font-mono text-[12.5px] px-1 py-0.5
            bg-raised border border-border text-foreground;
   }
 
-  .md-body blockquote {
-    @apply border-l-2 border-primary/50 pl-3 text-muted italic;
-  }
+  .md-body blockquote { @apply border-l-2 border-primary/50 pl-3 text-muted italic; }
 
   .md-body table { @apply w-full text-[13px] border-collapse; }
   .md-body th {
@@ -530,12 +480,11 @@
            px-2.5 py-1.5 border-b border-border;
   }
   .md-body td { @apply px-2.5 py-1.5 border-b border-border/60 align-top; }
-
   .md-body hr { @apply border-border; }
 }
 
 /* ==========================================================================
-   Reduced motion — show final states, drop decoration
+   Reduced motion
    ====================================================================== */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -546,16 +495,9 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-
-  /* Purely decorative motion is removed outright */
   .animate-float,
-  .indexing-sweep::after {
-    animation: none !important;
-  }
-
-  /* Keep the caret visible rather than blinking */
-  .streaming-caret::after {
-    animation: none !important;
-    opacity: 1;
-  }
+  .animate-flicker,
+  .indexing-sweep::after { animation: none !important; }
+  .streaming-caret::after,
+  .term-cursor::after { animation: none !important; opacity: 1; }
 }

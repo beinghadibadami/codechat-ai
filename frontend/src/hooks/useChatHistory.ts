@@ -83,9 +83,13 @@ const saveMessages = (messages: Message[]): void => {
 };
 
 /**
- * Clear messages from localStorage
+ * Clear messages from localStorage.
+ *
+ * Exported so non-component code (session reset, connecting a new repo) can
+ * wipe stale history without mounting the hook — otherwise the previous
+ * codebase's conversation bleeds into a freshly indexed one.
  */
-const clearStoredMessages = (): void => {
+export const clearStoredMessages = (): void => {
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch (error) {

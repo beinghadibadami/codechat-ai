@@ -75,6 +75,22 @@ const Chat: React.FC = () => {
   const conversation = messages.filter(m => !m.id.startsWith('welcome'));
   const isEmpty = isLoaded && conversation.length === 0;
 
+  // Safety net: if the loaded history belongs to a different codebase than the
+  // one now connected, drop it. Explicit clears on connect/disconnect cover the
+  // common path; this catches anything that slips through (e.g. history from a
+  // prior session in the same browser).
+  const sessionKey = repoUrl || repoName || null;
+  useEffect(() => {
+    if (!isLoaded || !sessionKey) return;
+    const BOUND_KEY = 'codechat-bound-repo';
+    const bound = localStorage.getItem(BOUND_KEY);
+    if (bound && bound !== sessionKey && conversation.length > 0) {
+      clearMessages();
+    }
+    localStorage.setItem(BOUND_KEY, sessionKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, sessionKey]);
+
   // Keep the newest turn in view while streaming
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: streaming ? 'auto' : 'smooth', block: 'end' });

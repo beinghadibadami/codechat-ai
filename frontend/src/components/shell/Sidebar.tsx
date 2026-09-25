@@ -74,22 +74,22 @@ export const Sidebar: React.FC<Props> = ({ collapsed, onToggleCollapsed, onNavig
         to="/"
         className="group h-topbar flex items-center gap-2 px-3 border-b border-border
                    shrink-0 hover:bg-raised/40 interactive focus-ring"
-        title="Back to codechat.ai"
+        title="Back to home"
       >
         <div
-          className="relative w-6 h-6 rounded-sm bg-primary/15 border border-primary/30
+          className="relative w-6 h-6 border border-primary/40 bg-primary/10
                      grid place-items-center shrink-0"
           aria-hidden
         >
-          <span className="font-mono text-[11px] font-semibold text-primary group-hover:opacity-0 transition-opacity">
-            C
+          <span className="font-mono text-[11px] font-bold text-primary group-hover:opacity-0 transition-opacity">
+            &gt;_
           </span>
           <ArrowLeft
             className="w-3 h-3 text-primary absolute opacity-0 group-hover:opacity-100 transition-opacity"
           />
         </div>
         {!collapsed && (
-          <span className="font-semibold text-sm tracking-tight truncate">CodeChat</span>
+          <span className="font-display font-bold text-sm tracking-tight truncate">gitchat</span>
         )}
       </NavLink>
 

@@ -445,7 +445,7 @@ const Pulls: React.FC = () => {
                             m.role === 'user' ? 'text-faint' : 'text-primary/70'
                           )}
                         >
-                          {m.role === 'user' ? 'you' : 'codechat'}
+                          {m.role === 'user' ? 'you' : 'gitchat'}
                         </span>
                         {m.role === 'user' ? (
                           <p className="text-[13.5px] leading-relaxed">{m.content}</p>
