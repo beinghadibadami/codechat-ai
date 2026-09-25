@@ -1,48 +1,46 @@
 /**
- * IndexingState — progress while a repo is cloned/uploaded and embedded.
+ * IndexingState — live progress while a repo is cloned/uploaded and embedded.
  *
- * The backend doesn't stream per-file progress, so rather than fake a
- * percentage we show the real phase sequence as a terminal log and an
- * indeterminate sweep bar. Phases are derived from what we can observe
- * (files_processed > 0 means embedding has started), or advanced on a timer
- * by the caller while a blocking upload request is in flight.
+ * Indexing now runs asynchronously on the backend and reports a phase plus
+ * file/chunk counts, which the session poll surfaces. We show the real numbers
+ * as a terminal log — no invented percentages.
  */
 import React from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { IndexProgress } from '@/services/api';
 
-export type IndexPhase = 'fetch' | 'read' | 'chunk' | 'embed' | 'done';
-
-const PHASES: Array<{ key: IndexPhase; label: string; githubLabel?: string }> = [
-  { key: 'fetch', label: 'receiving files', githubLabel: 'cloning repository' },
-  { key: 'read', label: 'reading source files' },
-  { key: 'chunk', label: 'splitting into chunks' },
-  { key: 'embed', label: 'building the index' },
+/** Backend phase → ordered step it maps to. */
+const STEPS: Array<{ keys: IndexProgress['phase'][]; label: string; githubLabel?: string }> = [
+  { keys: ['clone'], label: 'receiving files', githubLabel: 'cloning repository' },
+  { keys: ['load'], label: 'reading & chunking source' },
+  { keys: ['embed'], label: 'building the index' },
 ];
 
 interface Props {
-  phase: IndexPhase;
+  progress?: IndexProgress | null;
   sourceType?: 'github' | 'upload' | null;
-  filesProcessed?: number;
-  detail?: string | null;
   onCancel?: () => void;
   className?: string;
 }
 
-export const IndexingState: React.FC<Props> = ({
-  phase,
-  sourceType,
-  filesProcessed,
-  detail,
-  onCancel,
-  className,
-}) => {
-  const currentIndex = PHASES.findIndex(p => p.key === phase);
-  const activeIndex = phase === 'done' ? PHASES.length : Math.max(currentIndex, 0);
+export const IndexingState: React.FC<Props> = ({ progress, sourceType, onCancel, className }) => {
+  const phase = progress?.phase ?? 'clone';
+
+  // Which step is active. 'done' completes everything; anything else finds its
+  // step, defaulting to the first while we wait for the first update.
+  const activeStep =
+    phase === 'done'
+      ? STEPS.length
+      : Math.max(0, STEPS.findIndex(s => s.keys.includes(phase)));
+
+  const filesDone = progress?.files_done ?? 0;
+  const filesTotal = progress?.files_total ?? 0;
+  const chunksDone = progress?.chunks_done ?? 0;
+  const chunksTotal = progress?.chunks_total ?? 0;
 
   return (
     <div className={cn('w-full max-w-md mx-auto', className)}>
-      {/* Terminal-framed log */}
       <div className="window scanlines">
         <div className="window-bar">
           <span className="window-dots" />
@@ -54,14 +52,22 @@ export const IndexingState: React.FC<Props> = ({
         </div>
 
         <div className="p-4 font-mono text-[12.5px] leading-relaxed space-y-1.5" aria-live="polite">
-          {PHASES.map((p, i) => {
-            const complete = i < activeIndex;
-            const active = i === activeIndex;
-            const label = sourceType === 'github' && p.githubLabel ? p.githubLabel : p.label;
+          {STEPS.map((s, i) => {
+            const complete = i < activeStep;
+            const active = i === activeStep;
+            const label = sourceType === 'github' && s.githubLabel ? s.githubLabel : s.label;
+
+            // Per-step live count
+            let count = '';
+            if (active && s.keys.includes('load') && filesDone > 0) {
+              count = filesTotal ? `${filesDone}/${filesTotal} files` : `${filesDone} files`;
+            } else if (active && s.keys.includes('embed') && chunksTotal > 0) {
+              count = `${chunksDone}/${chunksTotal} chunks`;
+            }
 
             return (
               <div
-                key={p.key}
+                key={s.label}
                 className={cn(
                   'flex items-center gap-2',
                   complete && 'text-muted',
@@ -78,30 +84,19 @@ export const IndexingState: React.FC<Props> = ({
                 )}
                 <span className="text-primary/50 shrink-0">$</span>
                 <span className={cn('truncate', active && 'term-cursor')}>{label}</span>
-                {active && typeof filesProcessed === 'number' && filesProcessed > 0 && (
-                  <span className="text-2xs text-faint ml-auto shrink-0">
-                    {filesProcessed} files
-                  </span>
-                )}
+                {count && <span className="text-2xs text-faint ml-auto shrink-0">{count}</span>}
               </div>
             );
           })}
         </div>
 
-        {/* Indeterminate sweep — honest about not knowing the exact percentage */}
         <div
           className="relative h-1 bg-raised overflow-hidden indexing-sweep"
           role="progressbar"
           aria-label="Indexing progress"
-          aria-valuetext={PHASES[activeIndex]?.label ?? 'finishing'}
+          aria-valuetext={STEPS[activeStep]?.label ?? 'finishing'}
         />
       </div>
-
-      {detail && (
-        <p className="mt-3 font-mono text-2xs text-faint truncate" title={detail}>
-          {detail}
-        </p>
-      )}
 
       {onCancel && (
         <button

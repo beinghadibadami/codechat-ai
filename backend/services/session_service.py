@@ -25,6 +25,18 @@ class SessionService:
 
     # ------- Session -----------------------------------------------------
 
+    @staticmethod
+    def _empty_progress() -> Dict:
+        """Fresh progress record for the indexing job."""
+        return {
+            "phase": "idle",     # idle | clone | load | embed | done | error
+            "files_total": 0,
+            "files_done": 0,
+            "chunks_total": 0,
+            "chunks_done": 0,
+            "message": None,     # error text when phase == "error"
+        }
+
     def generate_new_session(self) -> Dict:
         """Generate a new session with unique namespace and empty auth."""
         return {
@@ -38,10 +50,42 @@ class SessionService:
             "repo_url": None,
             "repo_name": None,
             "indexing": False,     # True while an upload/clone is in flight
+            "index_progress": self._empty_progress(),
         }
+
+    def start_indexing(self):
+        """Flag the session as indexing and reset progress to a clean slate."""
+        self.current_session["indexing"] = True
+        self.current_session["index_progress"] = self._empty_progress()
+
+    def update_progress(self, **fields):
+        """Merge fields into the current index progress record."""
+        progress = self.current_session.get("index_progress") or self._empty_progress()
+        progress.update(fields)
+        self.current_session["index_progress"] = progress
+
+    def get_progress(self) -> Dict:
+        return self.current_session.get("index_progress") or self._empty_progress()
+
+    def is_indexing(self) -> bool:
+        return bool(self.current_session.get("indexing"))
 
     def get_session(self) -> Dict:
         return self.current_session
+
+    def set_namespace(self, namespace: str):
+        """Point the session at a specific namespace (cache reattach)."""
+        self.current_session["namespace"] = namespace
+
+    def assign_new_namespace(self) -> str:
+        """
+        Give the session a fresh namespace for a new index.
+
+        Each repo gets its own namespace so a new index never overwrites a
+        previously cached repo's vectors.
+        """
+        self.current_session["namespace"] = str(uuid.uuid4())
+        return self.current_session["namespace"]
 
     def update_session(
         self,

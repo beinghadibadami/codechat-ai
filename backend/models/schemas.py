@@ -2,7 +2,7 @@
 Pydantic models for request/response validation
 """
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 
 
 class ChatMessage(BaseModel):
@@ -67,6 +67,7 @@ class SessionInfoResponse(BaseModel):
     repo_url: Optional[str] = None
     repo_name: Optional[str] = None
     indexing: bool = False
+    index_progress: Optional[Dict[str, Any]] = None  # phase + file/chunk counts
     github_user: Optional[str] = None
 
 

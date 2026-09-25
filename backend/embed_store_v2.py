@@ -4,6 +4,7 @@ import uuid
 import os
 import re
 from typing import List, Dict, Any, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pinecone import Pinecone, ServerlessSpec
 import time
@@ -148,7 +149,31 @@ class EnhancedPineconeManager:
         except Exception as e:
             print(f"Error: {e}")
             raise
-    
+
+    def delete_namespace(self, namespace: str) -> bool:
+        """
+        Delete every vector in a namespace.
+
+        Used for session cleanup (disconnect / reset) and to guarantee a clean
+        slate before re-indexing, so a new codebase never mixes with the
+        previous one's vectors. Deleting an empty/absent namespace is treated
+        as success — it's idempotent by design.
+        """
+        if not namespace:
+            return False
+        try:
+            self.index.delete(delete_all=True, namespace=namespace)
+            print(f"[OK] Cleared namespace '{namespace}'")
+            return True
+        except Exception as e:
+            msg = str(e).lower()
+            # Pinecone raises 404 when the namespace has no vectors yet.
+            if "not found" in msg or "404" in msg:
+                print(f"[WARN] Namespace '{namespace}' already empty")
+                return True
+            print(f"[ERROR] Failed to clear namespace '{namespace}': {e}")
+            return False
+
     # File-size thresholds for chunking strategy (in characters)
     SMALL_FILE_THRESHOLD = 1500      # Files smaller than this are kept whole
     CONFIG_FILE_THRESHOLD = 3000     # Config-like files can be bigger before splitting
@@ -425,12 +450,30 @@ class EnhancedPineconeManager:
             return 'general_code'
 
 
-    def batch_upsert_documents(self, chunks: List, namespace: str, batch_size: int = 50) -> bool:
-        """Upsert documents in batches for better performance"""
+    def batch_upsert_documents(
+        self,
+        chunks: List,
+        namespace: str,
+        batch_size: int = 50,
+        max_workers: int = 5,
+        on_progress=None,
+    ) -> bool:
+        """
+        Upsert documents to Pinecone in batches, several batches in flight at
+        once.
+
+        Concurrency is the main lever on indexing wall-clock time: each batch is
+        a network round-trip to Pinecone's hosted-embedding endpoint, so firing
+        `max_workers` of them together instead of one-at-a-time cuts the wait
+        roughly proportionally. Workers are bounded to stay under rate limits.
+
+        `on_progress(done, total)` — if given — is called as batches complete so
+        callers can surface real progress.
+        """
         if not chunks:
             print("[WARN] No chunks to upsert")
             return False
-        
+
         try:
             # Prepare all records first — include full metadata so retrieval
             # filters (file_name, symbols) work at query time.
@@ -452,25 +495,39 @@ class EnhancedPineconeManager:
                     "line_end": md.get('line_end', 1),
                 }
                 all_records.append(record)
-            
-            # Upsert in batches
-            total_batches = (len(all_records) + batch_size - 1) // batch_size
-            
-            for batch_num in range(total_batches):
-                start_idx = batch_num * batch_size
-                end_idx = min(start_idx + batch_size, len(all_records))
-                batch_records = all_records[start_idx:end_idx]
-                
-                self.index.upsert_records(namespace, batch_records)
-                print(f"[OK] Batch {batch_num + 1}/{total_batches}: Upserted {len(batch_records)} records")
-            
-            # Wait for final indexing
-            import time
-            time.sleep(5)  # Reduced wait time since batching is more efficient
-            
-            print(f"[OK] Successfully batch upserted {len(all_records)} total records")
+
+            # Split into batches
+            batches = [
+                all_records[i:i + batch_size]
+                for i in range(0, len(all_records), batch_size)
+            ]
+            total = len(all_records)
+            done = 0
+
+            # Fire batches concurrently, bounded by max_workers.
+            with ThreadPoolExecutor(max_workers=min(max_workers, len(batches))) as pool:
+                futures = {
+                    pool.submit(self.index.upsert_records, namespace, batch): len(batch)
+                    for batch in batches
+                }
+                for future in as_completed(futures):
+                    count = futures[future]
+                    # Surface the failure rather than silently dropping a batch.
+                    future.result()
+                    done += count
+                    if on_progress:
+                        try:
+                            on_progress(done, total)
+                        except Exception:
+                            pass  # progress reporting must never break the upsert
+                    print(f"[OK] Upserted {done}/{total} records")
+
+            # Give Pinecone a moment to make the last writes queryable.
+            time.sleep(3)
+
+            print(f"[OK] Successfully batch upserted {total} total records")
             return True
-            
+
         except Exception as e:
             print(f"[ERROR] batch upsert failed: {e}")
             return False

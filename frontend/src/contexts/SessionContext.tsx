@@ -7,7 +7,7 @@ import React, {
   useRef,
   ReactNode,
 } from 'react';
-import { apiService, SessionInfo, FileTreeNode, SourceType } from '@/services/api';
+import { apiService, SessionInfo, FileTreeNode, SourceType, IndexProgress } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { clearStoredMessages } from '@/hooks/useChatHistory';
 
@@ -21,6 +21,7 @@ interface SessionContextType {
   repoName: string | null;
   repoUrl: string | null;
   isIndexing: boolean;
+  indexProgress: IndexProgress | null;
   refreshSession: () => Promise<void>;
   resetSession: () => Promise<void>;
   refreshFileTree: () => Promise<void>;
@@ -132,6 +133,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     repoName: sessionInfo?.repo_name ?? null,
     repoUrl: sessionInfo?.repo_url ?? null,
     isIndexing: sessionInfo?.indexing ?? false,
+    indexProgress: sessionInfo?.index_progress ?? null,
     refreshSession,
     resetSession,
     refreshFileTree,

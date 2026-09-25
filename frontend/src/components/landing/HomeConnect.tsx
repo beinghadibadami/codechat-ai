@@ -2,8 +2,9 @@
  * HomeConnect — the compact connect widget on the landing page.
  *
  * One terminal frame, two modes: paste a GitHub URL, or drop local files.
- * Kicks off indexing in place (the upload endpoint blocks until done), shows a
- * live phase log while it runs, and routes into the workspace on success.
+ * Indexing runs in the background; this fires the kickoff request and hands off
+ * to the workspace, which shows live progress. Recently indexed repos reattach
+ * to cached vectors (no re-embed).
  *
  * Deliberately compact — a single prompt line, not two big panels.
  */
@@ -16,12 +17,15 @@ import {
   Lock,
   X,
   FileCode,
+  Loader2,
+  History,
+  Zap,
 } from 'lucide-react';
-import { apiService } from '@/services/api';
+import { apiService, RecentRepo } from '@/services/api';
 import { useSession } from '@/contexts/SessionContext';
 import { useGithubAuth } from '@/hooks/useGithubAuth';
+import { useUnloadWarning } from '@/hooks/useUnloadWarning';
 import { clearStoredMessages } from '@/hooks/useChatHistory';
-import { IndexingState, IndexPhase } from '@/components/states/IndexingState';
 import { cn } from '@/lib/utils';
 
 /** Loose check for a github repo URL — the backend validates properly. */
@@ -39,12 +43,9 @@ const SKIP_DIR_RE = /(^|\/)(node_modules|\.git|dist|build|__pycache__|\.venv|ven
 
 type Mode = 'repo' | 'upload';
 
-/** Timed phase progression for the blocking upload request. */
-const PHASE_SEQ: IndexPhase[] = ['fetch', 'read', 'chunk', 'embed'];
-
 export const HomeConnect: React.FC = () => {
   const navigate = useNavigate();
-  const { setHasData, refreshSession } = useSession();
+  const { refreshSession, hasData, repoName } = useSession();
   const github = useGithubAuth();
 
   const [mode, setMode] = useState<Mode>('repo');
@@ -55,28 +56,64 @@ export const HomeConnect: React.FC = () => {
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<IndexPhase>('fetch');
+  const [recent, setRecent] = useState<RecentRepo[]>([]);
 
   const fileInput = useRef<HTMLInputElement>(null);
-  const phaseTimer = useRef<number>();
 
   const valid = mode === 'repo' ? REPO_RE.test(url.trim()) : staged.length > 0;
 
-  // Drive the phase log on a timer while the request is in flight. It advances
-  // through the sequence and holds on the last step until the promise settles.
+  // Warn on refresh/close while the kickoff request is in flight.
+  useUnloadWarning(busy);
+
+  // Load recently indexed repos (cached vectors — one-click reattach).
   useEffect(() => {
-    if (!busy) {
-      window.clearInterval(phaseTimer.current);
-      return;
+    let cancelled = false;
+    apiService
+      .getRecentRepos()
+      .then(r => {
+        if (!cancelled) setRecent(r.repos ?? []);
+      })
+      .catch(() => {
+        /* caching not configured or offline — no recents, no problem */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Confirm replacing the currently indexed codebase, if any. */
+  const confirmReplace = (): boolean => {
+    if (!hasData) return true;
+    return window.confirm(
+      `This replaces the codebase you have indexed${repoName ? ` (${repoName})` : ''} ` +
+        'and clears its conversation. Continue?'
+    );
+  };
+
+  /** Shared kickoff: run `action`, then hand off to the workspace. */
+  const kickoff = async (action: () => Promise<{ success: boolean; message?: string }>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await action();
+      if (!res.success) throw new Error(res.message || 'Something went wrong');
+      // Fresh codebase → fresh conversation. Drop any prior repo's history.
+      clearStoredMessages();
+      // Indexing runs in the background; refresh so the session reports
+      // `indexing: true`, then hand off to the workspace for live progress.
+      await refreshSession();
+      navigate('/app');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong');
+      setBusy(false);
     }
-    let i = 0;
-    setPhase(PHASE_SEQ[0]);
-    phaseTimer.current = window.setInterval(() => {
-      i = Math.min(i + 1, PHASE_SEQ.length - 1);
-      setPhase(PHASE_SEQ[i]);
-    }, 1500);
-    return () => window.clearInterval(phaseTimer.current);
-  }, [busy]);
+  };
+
+  const indexRepo = (repoUrl: string) => {
+    if (busy || !confirmReplace()) return;
+    const sendToken = !github.connected && token.trim() ? token.trim() : undefined;
+    void kickoff(() => apiService.uploadGitHub(repoUrl.trim(), { token: sendToken }));
+  };
 
   const addFiles = (list: FileList | null) => {
     if (!list) return;
@@ -98,38 +135,24 @@ export const HomeConnect: React.FC = () => {
     setError(null);
   };
 
-  const submit = async () => {
-    if (!valid || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      if (mode === 'repo') {
-        const sendToken = !github.connected && token.trim() ? token.trim() : undefined;
-        const res = await apiService.uploadGitHub(url.trim(), { token: sendToken });
-        if (!res.success) throw new Error(res.message || 'Could not index the repository');
-      } else {
-        const res = await apiService.uploadFiles(staged, { chunk_size: 800, chunk_overlap: 100 });
-        if (!res.success) throw new Error(res.message || 'Upload failed');
-      }
-      // Fresh codebase → fresh conversation. Drop any prior repo's history.
-      clearStoredMessages();
-      setHasData(true);
-      await refreshSession();
-      navigate('/app');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong');
-      setBusy(false);
+  const submit = () => {
+    if (!valid || busy || !confirmReplace()) return;
+    if (mode === 'repo') {
+      const sendToken = !github.connected && token.trim() ? token.trim() : undefined;
+      void kickoff(() => apiService.uploadGitHub(url.trim(), { token: sendToken }));
+    } else {
+      void kickoff(() => apiService.uploadFiles(staged, { chunk_size: 800, chunk_overlap: 100 }));
     }
   };
 
-  // ---- Busy: live indexing log --------------------------------------------
+  // ---- Busy: kickoff request in flight ------------------------------------
   if (busy) {
     return (
-      <div className="animate-fade-in">
-        <IndexingState phase={phase} sourceType={mode === 'repo' ? 'github' : 'upload'} />
-        <p className="mt-4 text-center font-mono text-[11px] text-faint">
-          this runs once · hang tight
-        </p>
+      <div className="window scanlines">
+        <div className="p-10 flex flex-col items-center gap-3 text-center">
+          <Loader2 className="w-5 h-5 text-primary animate-spin" aria-hidden />
+          <p className="font-mono text-[12px] text-muted">starting indexing…</p>
+        </div>
       </div>
     );
   }
@@ -137,6 +160,24 @@ export const HomeConnect: React.FC = () => {
   // ---- Idle: connect widget -----------------------------------------------
   return (
     <div className="window scanlines">
+      {/* Already-indexed notice — connecting a new source replaces it */}
+      {hasData && (
+        <div className="flex items-center gap-2 px-4 h-9 border-b border-border
+                        bg-primary/[0.05] font-mono text-[11px]">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+          <span className="text-muted truncate">
+            indexed: <span className="text-foreground">{repoName ?? 'a codebase'}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => navigate('/app')}
+            className="ml-auto shrink-0 text-primary hover:underline focus-ring rounded-sm"
+          >
+            resume →
+          </button>
+        </div>
+      )}
+
       {/* Tab bar */}
       <div className="window-bar gap-0 px-0">
         <span className="window-dots ml-3" />
@@ -246,6 +287,37 @@ export const HomeConnect: React.FC = () => {
                            font-mono text-[12.5px] text-foreground placeholder:text-faint
                            outline-none focus:border-primary/50 interactive"
               />
+            )}
+
+            {/* Recently indexed — reattach to cached vectors (no re-embed) */}
+            {recent.length > 0 && (
+              <div className="mt-5 pt-4 border-t border-border">
+                <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-faint mb-2.5">
+                  <History className="w-3 h-3" aria-hidden />
+                  recent · instant reattach
+                </p>
+                <div className="space-y-1">
+                  {recent.map(r => (
+                    <button
+                      key={r.repo_url}
+                      type="button"
+                      onClick={() => indexRepo(r.repo_url)}
+                      className="group w-full flex items-center gap-2 px-2.5 h-9 border border-border
+                                 bg-background/40 hover:border-primary/40 hover:bg-primary/[0.04]
+                                 interactive focus-ring text-left"
+                    >
+                      <Github className="w-3.5 h-3.5 text-faint shrink-0" aria-hidden />
+                      <span className="font-mono text-[12px] text-muted group-hover:text-foreground truncate">
+                        {r.repo_name || r.repo_url.replace(/^https?:\/\/(www\.)?github\.com\//, '')}
+                      </span>
+                      <span className="ml-auto shrink-0 flex items-center gap-1 font-mono text-[10px] text-primary/70">
+                        <Zap className="w-3 h-3" aria-hidden />
+                        {r.file_count} files
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </>
         ) : (

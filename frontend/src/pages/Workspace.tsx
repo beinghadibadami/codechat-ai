@@ -7,7 +7,7 @@
  *   2. Codebase ready      → summary + jump-off points
  * If someone lands here with no session, send them home to connect.
  */
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Github,
@@ -24,6 +24,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { IndexingState } from '@/components/states/IndexingState';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/contexts/SessionContext';
+import { useUnloadWarning } from '@/hooks/useUnloadWarning';
 
 const JUMP_OFFS: Array<{
   to: string;
@@ -61,22 +62,29 @@ const JUMP_OFFS: Array<{
 
 const Workspace: React.FC = () => {
   const navigate = useNavigate();
-  const { hasData, isIndexing, sessionInfo, sourceType, repoName, resetSession, isLoading } =
-    useSession();
+  const {
+    hasData,
+    isIndexing,
+    indexProgress,
+    sessionInfo,
+    sourceType,
+    repoName,
+    resetSession,
+    isLoading,
+  } = useSession();
 
   const filesProcessed = sessionInfo?.files_processed ?? 0;
+  const indexError = indexProgress?.phase === 'error' ? indexProgress.message : null;
 
-  // No session and nothing indexing → connecting happens on the home page.
+  // Warn before a refresh/close wipes in-flight indexing progress.
+  useUnloadWarning(isIndexing);
+
+  // No session, nothing indexing, no error to show → connect on the home page.
   useEffect(() => {
-    if (!isLoading && !hasData && !isIndexing) {
+    if (!isLoading && !hasData && !isIndexing && !indexError) {
       navigate('/', { replace: true });
     }
-  }, [isLoading, hasData, isIndexing, navigate]);
-
-  const phase = useMemo(() => {
-    if (!isIndexing) return 'done' as const;
-    return filesProcessed > 0 ? ('embed' as const) : ('fetch' as const);
-  }, [isIndexing, filesProcessed]);
+  }, [isLoading, hasData, isIndexing, indexError, navigate]);
 
   // ---- Indexing ---------------------------------------------------------
   if (isIndexing) {
@@ -92,13 +100,39 @@ const Workspace: React.FC = () => {
               This runs once. You can leave — progress is kept on the server.
             </p>
             <IndexingState
-              phase={phase}
+              progress={indexProgress}
               sourceType={sourceType}
-              filesProcessed={filesProcessed}
               onCancel={async () => {
                 await resetSession();
+                navigate('/', { replace: true });
               }}
             />
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  // ---- Indexing failed --------------------------------------------------
+  if (indexError) {
+    return (
+      <AppShell>
+        <div className="h-full grid place-items-center px-6 py-16">
+          <div className="w-full max-w-md text-center">
+            <p className="eyebrow mb-3 justify-center">indexing failed</p>
+            <p className="font-mono text-[13px] text-destructive leading-relaxed mb-6">
+              {indexError}
+            </p>
+            <Button
+              size="sm"
+              onClick={async () => {
+                await resetSession();
+                navigate('/', { replace: true });
+              }}
+              className="h-9 text-sm"
+            >
+              Try another codebase
+            </Button>
           </div>
         </div>
       </AppShell>

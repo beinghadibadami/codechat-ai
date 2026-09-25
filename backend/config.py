@@ -32,10 +32,14 @@ class Settings:
     # Defaults to 8080 because that is the port this project's Vite config uses.
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:8080")
 
-    # Supabase (used only for shareable sessions — optional feature)
+    # Supabase (shareable sessions + repo cache — optional features)
     # Use the service_role key so the backend can read/write without RLS
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
+
+    # Repo cache: how long a repo's Pinecone namespace is kept for reuse.
+    # A re-picked repo within this window skips embedding (files re-clone).
+    REPO_CACHE_TTL_DAYS: int = int(os.getenv("REPO_CACHE_TTL_DAYS", "7"))
 
     # CORS settings — must include the deployed frontend origin
     CORS_ORIGINS: list = [

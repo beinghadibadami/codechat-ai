@@ -7,6 +7,25 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "https://codechat-backend-c
 
 export type SourceType = 'github' | 'upload';
 
+/** Live indexing progress reported by the backend while a job runs. */
+export interface IndexProgress {
+  phase: 'idle' | 'clone' | 'load' | 'embed' | 'done' | 'error';
+  files_total: number;
+  files_done: number;
+  chunks_total: number;
+  chunks_done: number;
+  /** Present when phase === 'error' */
+  message: string | null;
+}
+
+/** A recently indexed repo, reusable via cached vectors. */
+export interface RecentRepo {
+  repo_url: string;
+  repo_name: string | null;
+  file_count: number;
+  last_used_at: string;
+}
+
 export interface SessionInfo {
   namespace: string;
   has_data: boolean;
@@ -18,6 +37,8 @@ export interface SessionInfo {
   repo_name: string | null;
   /** True while a clone/upload is still being indexed */
   indexing: boolean;
+  /** Live phase + counts while indexing (null when idle) */
+  index_progress: IndexProgress | null;
   github_user: string | null;
   features: {
     hosted_embeddings: boolean;
@@ -204,6 +225,10 @@ class ApiService {
 
   async getSessionInfo(): Promise<SessionInfo> {
     return this.request('/session-info');
+  }
+
+  async getRecentRepos(): Promise<{ configured: boolean; repos: RecentRepo[] }> {
+    return this.request('/recent-repos');
   }
 
   // File tree
